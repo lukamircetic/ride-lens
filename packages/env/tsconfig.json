@@ -1,0 +1,3 @@
+{
+  "extends": "@ride-lens/config/tsconfig.base.json"
+}
