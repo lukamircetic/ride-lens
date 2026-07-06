@@ -1,13 +1,5 @@
 import { Toaster } from "@ride-lens/ui/components/sonner";
-import {
-  HeadContent,
-  Outlet,
-  createRootRouteWithContext,
-  useRouterState,
-} from "@tanstack/react-router";
-
-import Header from "@/components/header";
-import { ThemeProvider } from "@/components/theme-provider";
+import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
 import "../index.css";
 
@@ -17,53 +9,27 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   component: RootComponent,
   head: () => ({
     meta: [
-      {
-        title: "Ride Lens",
-      },
-      {
-        name: "description",
-        content: "Private cycling analytics dashboard for FIT activity files.",
-      },
+      { title: "Ride Lens" },
+      { name: "description", content: "Private cycling analytics dashboard for FIT activity files." },
     ],
     links: [
+      { rel: "icon", href: "/favicon.ico" },
+      { rel: "preconnect", href: "https://fonts.googleapis.com" },
+      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
       {
-        rel: "icon",
-        href: "/favicon.ico",
+        rel: "stylesheet",
+        href: "https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Overpass+Mono:wght@400;600;700;800&family=Overpass:wght@400;600;700;800;900&display=swap",
       },
     ],
   }),
 });
 
-const DESIGN_PATTERN = /^\/[1-5]\/?$/;
-
 function RootComponent() {
-  const pathname = useRouterState({ select: (s) => s.location.pathname });
-  const isDesign = DESIGN_PATTERN.test(pathname);
-
-  if (isDesign) {
-    return (
-      <>
-        <HeadContent />
-        <Outlet />
-      </>
-    );
-  }
-
   return (
     <>
       <HeadContent />
-      <ThemeProvider
-        attribute="class"
-        defaultTheme="dark"
-        disableTransitionOnChange
-        storageKey="vite-ui-theme"
-      >
-        <div className="grid grid-rows-[auto_1fr] h-svh">
-          <Header />
-          <Outlet />
-        </div>
-        <Toaster richColors />
-      </ThemeProvider>
+      <Outlet />
+      <Toaster richColors theme="dark" />
     </>
   );
 }
