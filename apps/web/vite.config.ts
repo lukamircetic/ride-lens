@@ -14,7 +14,8 @@ const plugins = [
 
 export default defineConfig({
   server: {
-    port: 3001,
+    port: 3010,
+    strictPort: true,
     proxy: {
       "/api": "http://127.0.0.1:3002",
       "/health": "http://127.0.0.1:3002",

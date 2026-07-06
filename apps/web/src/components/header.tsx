@@ -5,6 +5,7 @@ import { ModeToggle } from "./mode-toggle";
 
 export default function Header() {
   const links = [{ to: "/", label: "Dashboard" }] as const;
+  const designs = ["/1", "/2", "/3", "/4", "/5"] as const;
 
   return (
     <div>
@@ -21,6 +22,17 @@ export default function Header() {
               </Link>
             );
           })}
+          <span className="flex items-center gap-1.5">
+            {designs.map((to) => (
+              <Link
+                key={to}
+                to={to}
+                className="rounded px-1.5 py-0.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+              >
+                {to}
+              </Link>
+            ))}
+          </span>
         </nav>
         <div className="flex items-center gap-2">
           <ModeToggle />

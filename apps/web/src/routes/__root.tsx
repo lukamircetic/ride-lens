@@ -1,5 +1,10 @@
 import { Toaster } from "@ride-lens/ui/components/sonner";
-import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
+import {
+  HeadContent,
+  Outlet,
+  createRootRouteWithContext,
+  useRouterState,
+} from "@tanstack/react-router";
 
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -29,7 +34,21 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   }),
 });
 
+const DESIGN_PATTERN = /^\/[1-5]\/?$/;
+
 function RootComponent() {
+  const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const isDesign = DESIGN_PATTERN.test(pathname);
+
+  if (isDesign) {
+    return (
+      <>
+        <HeadContent />
+        <Outlet />
+      </>
+    );
+  }
+
   return (
     <>
       <HeadContent />

@@ -32,7 +32,7 @@ pnpm dev:server
 pnpm dev:web
 ```
 
-Open the web app at [http://localhost:3001](http://localhost:3001). The web dev server proxies `/api`, `/health`, and `/openapi.json` to the Effect backend on `127.0.0.1:3002`.
+Open the web app at [http://localhost:3010](http://localhost:3010). The web dev server proxies `/api`, `/health`, and `/openapi.json` to the Effect backend on `127.0.0.1:3002`.
 
 Local app data is written to `.data/`:
 
