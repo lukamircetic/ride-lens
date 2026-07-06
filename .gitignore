@@ -1,5 +1,6 @@
 # Dependencies
 node_modules
+.pnpm-store
 .pnp
 .pnp.js
 
@@ -14,6 +15,9 @@ apps/web/src/routeTree.gen.ts
 # Environment variables
 .env
 .env*.local
+
+# Local application data
+.data
 
 # IDEs and editors
 .vscode/*

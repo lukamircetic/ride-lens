@@ -1,0 +1,23 @@
+[references.executor]
+repository = "https://github.com/RhysSullivan/executor.git"
+description = "Use for Effect TypeScript backend implementation patterns."
+
+[references.alchemy_effect]
+repository = "https://github.com/alchemy-run/alchemy-effect.git"
+description = "Use for Alchemy Effect framework and infrastructure-as-code patterns."
+
+[references.t3code]
+repository = "https://github.com/pingdotgg/t3code.git"
+description = "Use for T3 Stack application architecture and implementation patterns."
+
+[references.anomaly_opencode]
+repository = "https://github.com/anomalyco/opencode.git"
+description = "Use for agent UX and opencode implementation patterns."
+
+[references.effect_smol]
+repository = "https://github.com/Effect-TS/effect-smol.git"
+description = "Use for compact Effect TypeScript examples and patterns."
+
+[references.effect_solutions]
+repository = "https://github.com/kitlangton/effect-solutions.git"
+description = "Use for Effect TypeScript solution examples and exercises."

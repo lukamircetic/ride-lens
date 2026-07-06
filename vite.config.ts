@@ -10,8 +10,14 @@ export default defineConfig({
       "apps/web/src/routeTree.gen.ts",
     ],
     options: {
-      typeAware: false,
+      typeAware: true,
       typeCheck: false,
+    },
+    rules: {
+      "require-yield": "off",
+      "typescript/no-explicit-any": "warn",
+      "typescript/no-floating-promises": "warn",
+      "typescript/no-misused-spread": "warn",
     },
   },
   fmt: {

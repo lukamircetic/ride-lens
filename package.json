@@ -10,12 +10,16 @@
     "dev": "vp run -r dev",
     "build": "vp run -r build",
     "check-types": "vp run -r check-types",
-    "check": "vp check && vp run -r check-types",
+    "check": "node scripts/oxfmt.mjs --check && vp check --no-fmt && vp run -r check-types",
     "lint": "vp lint",
-    "format": "vp fmt",
+    "format": "node scripts/oxfmt.mjs --write",
+    "test": "vp run -r test",
     "staged": "vp staged",
     "hooks:setup": "vp config",
-    "dev:web": "vp run --filter web dev"
+    "dev:web": "vp run --filter web dev",
+    "dev:server": "vp run --filter server dev",
+    "db:generate": "vp run --filter @ride-lens/db db:generate",
+    "db:studio": "vp run --filter @ride-lens/db db:studio"
   },
   "dependencies": {
     "@ride-lens/env": "workspace:*",
@@ -30,6 +34,8 @@
     "vite-plus": "0.2.2"
   },
   "overrides": {
+    "react-hook-form": "7.80.0",
+    "systeminformation": "5.31.12",
     "vite": "npm:@voidzero-dev/vite-plus-core@0.2.2"
   },
   "packageManager": "pnpm@10.26.1"

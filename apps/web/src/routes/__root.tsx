@@ -1,6 +1,5 @@
 import { Toaster } from "@ride-lens/ui/components/sonner";
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
-import { TanStackRouterDevtools } from "@tanstack/react-router-devtools";
 
 import Header from "@/components/header";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -14,11 +13,11 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       {
-        title: "ride-lens",
+        title: "Ride Lens",
       },
       {
         name: "description",
-        content: "ride-lens is a web application",
+        content: "Private cycling analytics dashboard for FIT activity files.",
       },
     ],
     links: [
@@ -46,7 +45,6 @@ function RootComponent() {
         </div>
         <Toaster richColors />
       </ThemeProvider>
-      <TanStackRouterDevtools position="bottom-left" />
     </>
   );
 }

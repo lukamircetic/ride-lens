@@ -1,81 +1,77 @@
-# ride-lens
+# Ride Lens
 
-This project was created with [Better-T-Stack](https://github.com/AmanVarshney01/create-better-t-stack), a modern TypeScript stack that combines React, TanStack Router, and more.
+Private cycling analytics dashboard for manually imported FIT activity files.
 
-## Features
+V1 is intentionally local-first:
 
-- **TypeScript** - For type safety and improved developer experience
-- **TanStack Router** - File-based routing with full type safety
-- **TailwindCSS** - Utility-first CSS for rapid UI development
-- **Shared UI package** - shadcn/ui primitives live in `packages/ui`
-- **Vite+** - Unified Vite toolchain, workspace task runner, linting, and formatting
+- Upload one or more `.fit` files from the web app.
+- Parse rides with Garmin's FIT SDK.
+- Persist the original FIT file plus normalized ride summaries, records, and laps in SQLite.
+- View ride list, selected ride stats, route shape, speed/elevation/heart-rate profiles, yearly progress, and season highlights.
 
-## Getting Started
+## Stack
 
-First, install the dependencies:
+- `apps/web`: React, TanStack Router, Tailwind CSS, Vite+
+- `apps/server`: Bun, Effect `HttpApi`, `@effect/platform-bun`
+- `packages/api`: shared Effect API contract and response schemas
+- `packages/db`: SQLite/libSQL, Drizzle schema and migrations
+- `packages/ui`: shared shadcn/ui primitives
+
+## Development
+
+Install dependencies:
 
 ```bash
 pnpm install
 ```
 
-Then, run the development server:
+Run both apps:
 
 ```bash
-pnpm run dev
+pnpm dev:server
+pnpm dev:web
 ```
 
-Open [http://localhost:3001](http://localhost:3001) in your browser to see the web application.
+Open the web app at [http://localhost:3001](http://localhost:3001). The web dev server proxies `/api`, `/health`, and `/openapi.json` to the Effect backend on `127.0.0.1:3002`.
 
-## UI Customization
+Local app data is written to `.data/`:
 
-React web apps in this stack share shadcn/ui primitives through `packages/ui`.
+- `.data/ride-lens.sqlite`
+- `.data/uploads/fit/*.fit`
 
-- Change design tokens and global styles in `packages/ui/src/styles/globals.css`
-- Update shared primitives in `packages/ui/src/components/*`
-- Adjust shadcn aliases or style config in `packages/ui/components.json` and `apps/web/components.json`
+`.data/` is gitignored.
 
-### Add more shared components
+## Sample Ride
 
-Run this from the project root to add more primitives to the shared UI package:
+A sample FIT file is available at:
 
 ```bash
-npx shadcn@latest add accordion dialog popover sheet table -c packages/ui
+sample/ride-0-2026-07-05-12-30-42.fit
 ```
 
-Import shared components like this:
+You can upload it through the web app, or smoke-test the API directly while `pnpm dev:server` is running:
 
-```tsx
-import { Button } from "@ride-lens/ui/components/button";
+```bash
+curl -sS -i -F file=@sample/ride-0-2026-07-05-12-30-42.fit \
+  http://127.0.0.1:3002/api/activities/import
 ```
 
-### Add app-specific blocks
+Duplicate uploads are detected by SHA-256 hash and return the existing activity instead of inserting another copy.
 
-If you want to add app-specific blocks instead of shared primitives, run the shadcn CLI from `apps/web`.
+## Scripts
 
-## Git Hooks and Formatting
+- `pnpm dev:web`: start the web app
+- `pnpm dev:server`: start the Effect backend
+- `pnpm check`: run formatting, lint, build, and TypeScript checks
+- `pnpm test`: run server tests
+- `pnpm db:generate`: generate Drizzle migrations
+- `pnpm db:studio`: open Drizzle Studio
 
-- Optional native Vite+ hooks: `pnpm run hooks:setup`
-- Docs: [Vite+ commit hooks](https://viteplus.dev/guide/commit-hooks)
-- Run checks: `pnpm run check`
+## API
 
-## Project Structure
-
-```
-ride-lens/
-├── apps/
-│   ├── web/         # Frontend application (React + TanStack Router)
-├── packages/
-│   ├── ui/          # Shared shadcn/ui components and styles
-```
-
-## Available Scripts
-
-- `pnpm run dev`: Start all applications in development mode
-- `pnpm run build`: Build all applications
-- `pnpm run dev:web`: Start only the web application
-- `pnpm run check-types`: Check TypeScript types across all apps
-- `pnpm run check`: Run Vite+ format/lint checks and workspace TypeScript checks
-- `pnpm run lint`: Run Vite+ lint checks
-- `pnpm run format`: Run Vite+ formatting
-- `pnpm run staged`: Run Vite+ checks against staged files
-- `pnpm run hooks:setup`: Install Vite+ native Git hooks with `vp config`
+- `GET /health`
+- `POST /api/activities/import`
+- `GET /api/activities`
+- `GET /api/activities/:id`
+- `GET /openapi.json`
+- `GET /docs`

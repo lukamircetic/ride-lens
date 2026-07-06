@@ -1,0 +1,28 @@
+{
+  "name": "server",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc --noEmit",
+    "check-types": "tsc --noEmit",
+    "dev": "bun --watch src/main.ts",
+    "start": "bun src/main.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "catalog:",
+    "@garmin/fitsdk": "^21.208.0",
+    "@ride-lens/api": "workspace:*",
+    "@ride-lens/db": "workspace:*",
+    "drizzle-orm": "^0.45.2",
+    "effect": "catalog:"
+  },
+  "devDependencies": {
+    "@ride-lens/config": "workspace:*",
+    "@types/bun": "catalog:",
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
+  }
+}
