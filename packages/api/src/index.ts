@@ -130,10 +130,44 @@ export const ActivityLap = Schema.Struct({
   endLongitude: Schema.NullOr(Schema.Number),
 });
 
+export const ActivityWeatherSummary = Schema.Struct({
+  provider: Schema.String,
+  model: Schema.NullOr(Schema.String),
+  latitude: Schema.Number,
+  longitude: Schema.Number,
+  startTime: Schema.String,
+  endTime: Schema.String,
+  observationCount: Schema.Number,
+  sampleCount: Schema.Number,
+  averageTemperatureCelsius: Schema.NullOr(Schema.Number),
+  totalPrecipitationMillimeters: Schema.NullOr(Schema.Number),
+  averageWindSpeedMetersPerSecond: Schema.NullOr(Schema.Number),
+  maxWindGustMetersPerSecond: Schema.NullOr(Schema.Number),
+  dominantWindDirectionDegrees: Schema.NullOr(Schema.Number),
+  averageAirSpeedMetersPerSecond: Schema.NullOr(Schema.Number),
+  averageHeadwindMetersPerSecond: Schema.NullOr(Schema.Number),
+  maxHeadwindMetersPerSecond: Schema.NullOr(Schema.Number),
+  maxTailwindMetersPerSecond: Schema.NullOr(Schema.Number),
+  averageCrosswindMetersPerSecond: Schema.NullOr(Schema.Number),
+  headwindDistanceMeters: Schema.NullOr(Schema.Number),
+  tailwindDistanceMeters: Schema.NullOr(Schema.Number),
+  crosswindDistanceMeters: Schema.NullOr(Schema.Number),
+  headwindSeconds: Schema.NullOr(Schema.Number),
+  tailwindSeconds: Schema.NullOr(Schema.Number),
+  crosswindSeconds: Schema.NullOr(Schema.Number),
+  longestHeadwindMeters: Schema.NullOr(Schema.Number),
+  headwindShare: Schema.NullOr(Schema.Number),
+  tailwindShare: Schema.NullOr(Schema.Number),
+  crosswindShare: Schema.NullOr(Schema.Number),
+  windBurdenScore: Schema.NullOr(Schema.Number),
+  computedAt: Schema.String,
+});
+
 export const ActivityDetailResponse = Schema.Struct({
   activity: ActivityListItem,
   records: Schema.Array(ActivityRecord),
   laps: Schema.Array(ActivityLap),
+  weather: Schema.NullOr(ActivityWeatherSummary),
 });
 
 export type ActivityListResponse = Schema.Schema.Type<typeof ActivityListResponse>;

@@ -83,6 +83,38 @@ export function formatCadence(value: number | null): string {
   return `${Math.round(value)} rpm`;
 }
 
+export function formatTemperature(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  return `${Math.round(value)} C`;
+}
+
+export function formatWindSpeed(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  return `${value.toFixed(1)} m/s`;
+}
+
+export function formatMillimeters(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  return `${value.toFixed(value >= 10 ? 0 : 1)} mm`;
+}
+
+export function formatPercentShare(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  return `${Math.round(value * 100)}%`;
+}
+
+export function formatWindDirection(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  const directions = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"];
+  return directions[Math.round((((value % 360) + 360) % 360) / 45) % directions.length]!;
+}
+
+export function formatWindBurden(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  const rounded = Math.round(value);
+  return `${rounded > 0 ? "+" : ""}${rounded}`;
+}
+
 export function parseIsoDate(value: string | null): Date | null {
   if (value === null) return null;
   const date = new Date(value);

@@ -1,4 +1,5 @@
 import type { ActivityDetailResponse } from "@ride-lens/api";
+import { cn } from "@ride-lens/ui/lib/utils";
 
 import {
   formatBpm,
@@ -14,6 +15,7 @@ import { ProfilePanel } from "../map/profile-panel";
 import { RouteMap } from "../map/route-map";
 import type { ActivityListItem } from "../types";
 import { MetricRow } from "./metric-row";
+import { WeatherContext } from "./weather-context";
 
 export function RideDetail({
   activity,
@@ -30,29 +32,49 @@ export function RideDetail({
 
   return (
     <div>
-      <div className="detail-head">
-        <div>
-          <div className="name">{formatRideTitle(activity)}</div>
-          <div className="when">{activity.filename}</div>
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-5">
+        <div className="flex flex-wrap items-baseline gap-3">
+          <div className="font-ride text-[22px] leading-[1.1] font-extrabold uppercase">
+            {formatRideTitle(activity)}
+          </div>
+          <div className="min-w-0 font-ride-mono text-xs text-ride-ink-dim [overflow-wrap:anywhere]">
+            {activity.filename}
+          </div>
         </div>
       </div>
 
-      {error ? <div className="status error">{error}</div> : null}
+      {error ? (
+        <div className="mt-[18px] border border-ride-line border-l-[3px] border-l-ride-danger px-3.5 py-3 text-sm text-[#e6a59d]">
+          {error}
+        </div>
+      ) : null}
 
-      <div className="breakdown metrics">
-        <MetricRow k="Distance" v={formatDistance(activity.summary.totalDistanceMeters)} />
-        <MetricRow k="Average speed" v={formatSpeed(activity.summary.avgSpeedMetersPerSecond)} />
-        <MetricRow k="Heart rate" v={formatBpm(activity.summary.avgHeartRateBpm)} />
-        <MetricRow k="Climbing" v={`${formatElevation(activity.summary.totalAscentMeters)} m`} />
-        <MetricRow k="Elapsed" v={formatDuration(activity.summary.totalElapsedSeconds)} />
-        <MetricRow k="Timer" v={formatDuration(activity.summary.totalTimerSeconds)} />
-        <MetricRow k="Cadence" v={formatCadence(activity.summary.avgCadenceRpm)} />
-        <MetricRow k="Normalized pwr" v={formatWatts(activity.summary.normalizedPowerWatts)} />
-      </div>
+      <section>
+        <div className="mb-2.5 flex items-center justify-between gap-3 font-ride text-[11px] font-bold uppercase text-ride-ink-dim">
+          <span className="inline-flex items-center text-ride-ink-muted">Ride Stats</span>
+        </div>
+        <div className="mt-0 grid grid-cols-4 gap-px border border-ride-line bg-ride-line-soft max-[900px]:grid-cols-2">
+          <MetricRow k="Distance" v={formatDistance(activity.summary.totalDistanceMeters)} />
+          <MetricRow k="Average speed" v={formatSpeed(activity.summary.avgSpeedMetersPerSecond)} />
+          <MetricRow k="Heart rate" v={formatBpm(activity.summary.avgHeartRateBpm)} />
+          <MetricRow k="Climbing" v={`${formatElevation(activity.summary.totalAscentMeters)} m`} />
+          <MetricRow k="Elapsed" v={formatDuration(activity.summary.totalElapsedSeconds)} />
+          <MetricRow k="Timer" v={formatDuration(activity.summary.totalTimerSeconds)} />
+          <MetricRow k="Cadence" v={formatCadence(activity.summary.avgCadenceRpm)} />
+          <MetricRow k="Normalized pwr" v={formatWatts(activity.summary.normalizedPowerWatts)} />
+        </div>
+      </section>
 
-      <div className="map-grid ride-detail-map-grid">
+      <WeatherContext weather={detail?.weather ?? null} />
+
+      <div className="mt-3.5 grid grid-cols-[1.4fr_0.6fr] gap-0 border border-ride-line bg-ride-abyss max-[900px]:grid-cols-1">
         <RouteMap records={records} loading={loading} />
-        <div className="map-profiles">
+        <div
+          className={cn(
+            "grid min-w-0 grid-rows-3 border-l border-ride-line bg-ride-abyss",
+            "max-[900px]:grid-rows-none max-[900px]:border-l-0 max-[900px]:border-t",
+          )}
+        >
           <ProfilePanel
             label="Speed"
             records={records}

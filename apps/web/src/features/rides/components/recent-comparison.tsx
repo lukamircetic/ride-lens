@@ -1,9 +1,11 @@
+import { cn } from "@ride-lens/ui/lib/utils";
+
 import { formatDeltaDistance, formatDeltaSpeed, formatDistance, formatSpeed } from "../formatters";
 import type { SeasonSnapshotData } from "../season";
 
 export function RecentComparison({ snapshot }: { readonly snapshot: SeasonSnapshotData }) {
   return (
-    <div className="delta-panel">
+    <div className="grid grid-cols-3 gap-px border border-ride-line bg-ride-line-soft max-[900px]:grid-cols-1">
       <Delta k="Recent distance" v={formatDistance(snapshot.recentDistanceMeters)} />
       <Delta
         k="Previous distance"
@@ -38,9 +40,11 @@ export function RecentComparison({ snapshot }: { readonly snapshot: SeasonSnapsh
 
 function Delta({ k, v, up }: { readonly k: string; readonly v: string; readonly up?: boolean }) {
   return (
-    <div className="drow">
-      <span className="k">{k}</span>
-      <span className={`v${up ? " up" : ""}`}>{v}</span>
+    <div className="flex items-baseline justify-between gap-4 bg-ride-abyss px-4 py-3.5">
+      <span className="font-ride text-[11px] font-semibold uppercase text-ride-ink-dim">{k}</span>
+      <span className={cn("font-ride-mono text-[13px] text-ride-ink", up && "text-ride-amber")}>
+        {v}
+      </span>
     </div>
   );
 }

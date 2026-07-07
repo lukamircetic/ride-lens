@@ -1,4 +1,3 @@
-import { MapIcon } from "lucide-react";
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -92,12 +91,9 @@ export function RouteMap({
   }, [points]);
 
   return (
-    <div className="map-stage map-stage-live">
-      <div className="cap">
-        <span>
-          <MapIcon />
-          Route
-        </span>
+    <div className="min-w-0 p-3.5">
+      <div className="mb-2.5 flex items-center justify-between gap-3 font-ride text-[11px] font-bold uppercase text-ride-ink-dim">
+        <span className="inline-flex items-center text-ride-ink-muted">Route</span>
         {loading ? <span>loading</span> : null}
       </div>
       {!MAPTILER_STYLE_URL ? (
@@ -106,8 +102,11 @@ export function RouteMap({
           body="Add VITE_MAPTILER_API_KEY to apps/web/.env or apps/web/.env.local."
         />
       ) : hasRoute ? (
-        <div className="map-shell">
-          <div className="map-toolbar" aria-label="Route metric">
+        <div className="relative aspect-[1.25] min-h-[420px] overflow-hidden border border-[#343a43] bg-[#20252c] max-[900px]:aspect-[0.82] max-[900px]:h-auto max-[900px]:min-h-[360px]">
+          <div
+            className="absolute top-3 left-3 z-[2] flex max-w-[calc(100%-88px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:max-w-none"
+            aria-label="Route metric"
+          >
             <MapMetricButton
               metric="speed"
               activeMetric={metric}
@@ -127,7 +126,7 @@ export function RouteMap({
               onSelect={setMetric}
             />
           </div>
-          <div className="map-canvas" ref={containerRef} />
+          <div className="!absolute !inset-0" ref={containerRef} />
           <MapLegend metric={metric} points={points} />
         </div>
       ) : (

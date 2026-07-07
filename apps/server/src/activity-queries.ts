@@ -7,7 +7,9 @@ import {
   activities,
   activity_laps,
   activity_records,
+  activity_weather_summaries,
   fit_files,
+  type ActivityWeatherSummaryRow,
   type ActivityRow,
   type FitFileRow,
   type RideLensDrizzleDatabase,
@@ -15,6 +17,7 @@ import {
 } from "@ride-lens/db";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { Data, Effect } from "effect";
+import { activityWeatherSummaryRowToResponse } from "./weather";
 
 export class ActivityQueryError extends Data.TaggedError("ActivityQueryError")<{
   readonly operation: string;
@@ -95,6 +98,10 @@ export const getActivityDetail = (
       activity: activityWithFileToListItem(detail),
       records: detail.records.map(activityRecordRowToResponse),
       laps: detail.laps.map(activityLapRowToResponse),
+      weather:
+        detail.weatherSummary === null
+          ? null
+          : activityWeatherSummaryRowToResponse(detail.weatherSummary),
     };
   });
 
@@ -112,6 +119,7 @@ const queryActivityDetail = async (
   | (ActivityWithFile & {
       readonly records: ReadonlyArray<ActivityRecordRow>;
       readonly laps: ReadonlyArray<ActivityLapRow>;
+      readonly weatherSummary: ActivityWeatherSummaryRow | null;
     })
   | null
 > => {
@@ -127,7 +135,7 @@ const queryActivityDetail = async (
     return null;
   }
 
-  const [records, laps] = await Promise.all([
+  const [records, laps, weatherSummaryRows] = await Promise.all([
     db
       .select()
       .from(activity_records)
@@ -138,12 +146,18 @@ const queryActivityDetail = async (
       .from(activity_laps)
       .where(eq(activity_laps.activity_id, activityId))
       .orderBy(asc(activity_laps.lap_index)),
+    db
+      .select()
+      .from(activity_weather_summaries)
+      .where(eq(activity_weather_summaries.activity_id, activityId))
+      .limit(1),
   ]);
 
   return {
     ...row,
     records,
     laps,
+    weatherSummary: weatherSummaryRows[0] ?? null,
   };
 };
 

@@ -18,9 +18,24 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
 import { makeWebHandler } from "./app";
+import type { WeatherClient } from "./weather";
 
 const dataDir = await mkdtemp(join(tmpdir(), "ride-lens-server-"));
-const { handler, dispose } = makeWebHandler({ dataDir });
+const weatherClient = {
+  fetchHistoricalWeather: async () => ({
+    latitude: 43.658,
+    longitude: -79.389,
+    hourly: {
+      time: ["2026-01-15T13:00", "2026-01-15T14:00"],
+      temperature_2m: [4, 5],
+      precipitation: [0, 0.2],
+      wind_speed_10m: [5, 7],
+      wind_direction_10m: [270, 280],
+      wind_gusts_10m: [8, 10],
+    },
+  }),
+} satisfies WeatherClient;
+const { handler, dispose } = makeWebHandler({ dataDir, weather: { client: weatherClient } });
 
 afterAll(async () => {
   await dispose();
@@ -251,6 +266,23 @@ describe("Ride Lens API", () => {
 
     const detailBody = (await detailResponse.json()) as ActivityDetailResponse;
     expect(detailBody.activity.id).toBe(imported.importId);
+    expect(detailBody.weather).toMatchObject({
+      provider: "open-meteo",
+      model: "best_match",
+      observationCount: 2,
+      sampleCount: 1,
+      averageTemperatureCelsius: 4.5,
+      totalPrecipitationMillimeters: 0.2,
+      averageWindSpeedMetersPerSecond: 6,
+      maxWindGustMetersPerSecond: 10,
+      averageAirSpeedMetersPerSecond: expect.any(Number),
+      maxHeadwindMetersPerSecond: expect.any(Number),
+      maxTailwindMetersPerSecond: expect.any(Number),
+      headwindDistanceMeters: expect.any(Number),
+      tailwindDistanceMeters: expect.any(Number),
+      longestHeadwindMeters: expect.any(Number),
+      windBurdenScore: expect.any(Number),
+    });
     expect(detailBody.records).toHaveLength(2);
     expect(detailBody.records[0]).toMatchObject({
       recordIndex: 0,

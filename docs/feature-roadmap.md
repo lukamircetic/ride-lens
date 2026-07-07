@@ -62,6 +62,23 @@ VITE_MAPTILER_STYLE_ID=streets-v2
 
 The key is a public browser key, not a server secret. It should still be restricted by origin once we know the deploy URL.
 
+## Weather Platform Decision
+
+Use Open-Meteo Historical Weather API for V1 wind and weather context.
+
+Open-Meteo gives us hourly historical temperature, precipitation, wind speed,
+wind direction, and gust data by coordinate. For this private/local app, no API
+key is needed; the server calls the public archive endpoint directly and caches
+the result in SQLite. If Ride Lens later becomes a hosted/commercial product,
+move to a paid Open-Meteo plan or another weather provider behind the same
+server-side weather client boundary.
+
+Initial request shape:
+
+```bash
+https://archive-api.open-meteo.com/v1/archive?latitude=...&longitude=...&start_date=YYYY-MM-DD&end_date=YYYY-MM-DD&hourly=temperature_2m,precipitation,wind_speed_10m,wind_direction_10m,wind_gusts_10m&wind_speed_unit=ms&timezone=UTC
+```
+
 ## Feature Tracks
 
 ### 1. Interactive Ride Map

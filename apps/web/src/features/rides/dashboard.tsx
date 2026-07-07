@@ -3,6 +3,7 @@ import type {
   ActivityListResponse,
   ActivityRoutesResponse,
 } from "@ride-lens/api";
+import { cn } from "@ride-lens/ui/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { FileUpIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -24,6 +25,18 @@ import {
 import { AllRidesMap } from "./map/all-rides-map";
 import { monthlyDistance, summarizeActivities, summarizeSeason } from "./season";
 import type { LoadState } from "./types";
+
+const statusErrorClassName =
+  "mt-[18px] border border-ride-line border-l-[3px] border-l-ride-danger px-3.5 py-3 text-sm text-[#e6a59d]";
+
+const sectionHeaderClassName = "mb-5 flex flex-wrap items-baseline justify-between gap-5";
+
+const sectionTitleClassName = "font-ride text-[13px] font-bold uppercase text-ride-ink-muted";
+
+const sectionSubClassName = "font-ride text-[11px] text-ride-ink-dim";
+
+const uploadButtonClassName =
+  "inline-flex cursor-pointer items-center gap-2 border border-ride-line bg-ride-night-2 px-3.5 py-[9px] font-ride text-xs font-bold uppercase text-ride-ink transition-colors hover:border-ride-amber hover:text-ride-amber disabled:cursor-default disabled:opacity-50 [&_svg]:size-[15px]";
 
 export function RideDashboard({
   initialActivityId = null,
@@ -203,14 +216,20 @@ export function RideDashboard({
 
   return (
     <div data-app="ride-lens">
-      <div className="wrap">
-        <header className="road-header">
-          <div className="rh-row">
-            <a className="rh-title" href="/">
+      <div className="mx-auto max-w-[1240px] px-7 pb-[60px]">
+        <header className="pt-[26px] pb-[22px]">
+          <div className="flex items-center gap-[22px]">
+            <a
+              className="whitespace-nowrap font-ride text-[30px] leading-none font-black uppercase text-ride-ink no-underline"
+              href="/"
+            >
               Ride Lens
             </a>
-            <span className="rh-line" aria-hidden="true" />
-            <div className="rh-actions">
+            <span
+              className="h-[3px] flex-1 -translate-y-0.5 bg-[repeating-linear-gradient(90deg,var(--amber)_0_26px,transparent_26px_44px)]"
+              aria-hidden="true"
+            />
+            <div className="flex gap-2 whitespace-nowrap">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -221,7 +240,7 @@ export function RideDashboard({
               />
               <button
                 type="button"
-                className="rh-btn"
+                className={uploadButtonClassName}
                 disabled={uploading}
                 onClick={() => fileInputRef.current?.click()}
               >
@@ -232,17 +251,19 @@ export function RideDashboard({
           </div>
         </header>
 
-        {uploadError ? <div className="status error">{uploadError}</div> : null}
-        {activitiesState.error ? <div className="status error">{activitiesState.error}</div> : null}
+        {uploadError ? <div className={statusErrorClassName}>{uploadError}</div> : null}
+        {activitiesState.error ? (
+          <div className={statusErrorClassName}>{activitiesState.error}</div>
+        ) : null}
         {activityRoutesState.error ? (
-          <div className="status error">{activityRoutesState.error}</div>
+          <div className={statusErrorClassName}>{activityRoutesState.error}</div>
         ) : null}
 
         {activities.length === 0 && !activitiesState.loading ? (
           <EmptyState onUpload={() => fileInputRef.current?.click()} />
         ) : (
-          <section className="section">
-            <div className="ride-overview-grid">
+          <section className="mt-12">
+            <div className="grid grid-cols-[minmax(360px,0.72fr)_minmax(520px,1.28fr)] items-stretch gap-[18px] max-[900px]:grid-cols-1">
               <RideLog
                 activities={activities}
                 selectedActivityId={selectedActivityId}
@@ -255,9 +276,9 @@ export function RideDashboard({
                 onHoverActivity={setHoveredActivityId}
               />
 
-              <div className="ride-map-panel">
-                <div className="sec-head">
-                  <div className="sec-sub">
+              <div className="flex min-w-0 flex-col">
+                <div className={cn(sectionHeaderClassName, "mb-3 justify-end")}>
+                  <div className={sectionSubClassName}>
                     {activityRoutesState.loading
                       ? "loading routes"
                       : `${activityRoutes.length} mapped rides`}
@@ -276,10 +297,12 @@ export function RideDashboard({
         )}
 
         {selectedActivity ? (
-          <section className="section">
-            <div className="sec-head">
-              <div className="sec-title">Selected ride</div>
-              {detailState.loading ? <div className="sec-sub">loading detail</div> : null}
+          <section className="mt-12">
+            <div className={sectionHeaderClassName}>
+              <div className={sectionTitleClassName}>Selected ride</div>
+              {detailState.loading ? (
+                <div className={sectionSubClassName}>loading detail</div>
+              ) : null}
             </div>
             <RideDetail
               activity={selectedActivity}
@@ -290,33 +313,35 @@ export function RideDashboard({
           </section>
         ) : null}
 
-        <section className="section">
-          <div className="sec-head">
-            <div className="sec-title">Season snapshot</div>
-            <div className="sec-sub">
+        <section className="mt-12">
+          <div className={sectionHeaderClassName}>
+            <div className={sectionTitleClassName}>Season snapshot</div>
+            <div className={sectionSubClassName}>
               {snapshot.activeMonths} active {snapshot.activeMonths === 1 ? "month" : "months"}
             </div>
           </div>
           <SeasonSnapshot snapshot={snapshot} totals={totals} onSelect={handleSelectActivity} />
         </section>
 
-        <section className="section">
-          <div className="sec-head">
-            <div className="sec-title">Recent vs previous</div>
-            <div className="sec-sub">last 4 rides vs previous 4</div>
+        <section className="mt-12">
+          <div className={sectionHeaderClassName}>
+            <div className={sectionTitleClassName}>Recent vs previous</div>
+            <div className={sectionSubClassName}>last 4 rides vs previous 4</div>
           </div>
           <RecentComparison snapshot={snapshot} />
         </section>
 
-        <section className="section">
-          <div className="sec-head">
-            <div className="sec-title">Year progress</div>
-            <div className="sec-sub">{formatDistance(monthlyDistance(activities))} this year</div>
+        <section className="mt-12">
+          <div className={sectionHeaderClassName}>
+            <div className={sectionTitleClassName}>Year progress</div>
+            <div className={sectionSubClassName}>
+              {formatDistance(monthlyDistance(activities))} this year
+            </div>
           </div>
           <YearProgress activities={activities} />
         </section>
 
-        <footer>
+        <footer className="mt-12 flex justify-between border-t border-ride-line-soft pt-[18px] font-ride text-xs font-semibold uppercase text-ride-ink-dim">
           <span>Ride Lens</span>
           <span>private cycling analytics</span>
           <span>{formatDistance(totals.distanceMeters)} &amp; counting</span>

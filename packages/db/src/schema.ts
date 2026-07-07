@@ -124,6 +124,66 @@ export const activity_laps = sqliteTable(
   ],
 );
 
+export const weather_observations = sqliteTable(
+  "weather_observations",
+  {
+    activity_id: text()
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    timestamp: integer().notNull(),
+    latitude: real().notNull(),
+    longitude: real().notNull(),
+    temperature_celsius: real(),
+    precipitation_millimeters: real(),
+    wind_speed_meters_per_second: real(),
+    wind_direction_degrees: real(),
+    wind_gust_meters_per_second: real(),
+    provider: text().notNull(),
+    model: text(),
+    time_created: integer().notNull(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.activity_id, table.timestamp] }),
+    index("weather_observations_activity_time_idx").on(table.activity_id, table.timestamp),
+  ],
+);
+
+export const activity_weather_summaries = sqliteTable("activity_weather_summaries", {
+  activity_id: text()
+    .primaryKey()
+    .references(() => activities.id, { onDelete: "cascade" }),
+  provider: text().notNull(),
+  model: text(),
+  latitude: real().notNull(),
+  longitude: real().notNull(),
+  start_time: integer().notNull(),
+  end_time: integer().notNull(),
+  observation_count: integer().notNull(),
+  sample_count: integer().notNull(),
+  average_temperature_celsius: real(),
+  total_precipitation_millimeters: real(),
+  average_wind_speed_meters_per_second: real(),
+  max_wind_gust_meters_per_second: real(),
+  dominant_wind_direction_degrees: real(),
+  average_air_speed_meters_per_second: real(),
+  average_headwind_meters_per_second: real(),
+  max_headwind_meters_per_second: real(),
+  max_tailwind_meters_per_second: real(),
+  average_crosswind_meters_per_second: real(),
+  headwind_distance_meters: real(),
+  tailwind_distance_meters: real(),
+  crosswind_distance_meters: real(),
+  headwind_seconds: real(),
+  tailwind_seconds: real(),
+  crosswind_seconds: real(),
+  longest_headwind_meters: real(),
+  headwind_share: real(),
+  tailwind_share: real(),
+  crosswind_share: real(),
+  wind_burden_score: real(),
+  computed_at: integer().notNull(),
+});
+
 export const fit_files_relations = relations(fit_files, ({ one }) => ({
   activity: one(activities, {
     fields: [fit_files.id],
@@ -138,6 +198,11 @@ export const activities_relations = relations(activities, ({ one, many }) => ({
   }),
   records: many(activity_records),
   laps: many(activity_laps),
+  weather_observations: many(weather_observations),
+  weather_summary: one(activity_weather_summaries, {
+    fields: [activities.id],
+    references: [activity_weather_summaries.activity_id],
+  }),
 }));
 
 export const activity_records_relations = relations(activity_records, ({ one }) => ({
@@ -154,5 +219,24 @@ export const activity_laps_relations = relations(activity_laps, ({ one }) => ({
   }),
 }));
 
+export const weather_observations_relations = relations(weather_observations, ({ one }) => ({
+  activity: one(activities, {
+    fields: [weather_observations.activity_id],
+    references: [activities.id],
+  }),
+}));
+
+export const activity_weather_summaries_relations = relations(
+  activity_weather_summaries,
+  ({ one }) => ({
+    activity: one(activities, {
+      fields: [activity_weather_summaries.activity_id],
+      references: [activities.id],
+    }),
+  }),
+);
+
 export type ActivityRow = typeof activities.$inferSelect;
 export type FitFileRow = typeof fit_files.$inferSelect;
+export type WeatherObservationRow = typeof weather_observations.$inferSelect;
+export type ActivityWeatherSummaryRow = typeof activity_weather_summaries.$inferSelect;

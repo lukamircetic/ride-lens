@@ -106,16 +106,20 @@ export function AllRidesMap({
   }, [routesWithGps]);
 
   return (
-    <div className="map-stage map-stage-live">
-      {loading ? <div className="cap">loading</div> : null}
+    <div className="flex min-w-0 flex-1 flex-col p-0">
+      {loading ? (
+        <div className="mb-2.5 flex items-center justify-between gap-3 font-ride text-[11px] font-bold uppercase text-ride-ink-dim">
+          loading
+        </div>
+      ) : null}
       {!MAPTILER_STYLE_URL ? (
         <MapEmptyState
           title="Map key missing"
           body="Add VITE_MAPTILER_API_KEY to apps/web/.env or apps/web/.env.local."
         />
       ) : hasRoutes ? (
-        <div className="map-shell all-rides">
-          <div className="map-canvas" ref={containerRef} />
+        <div className="relative min-h-0 flex-1 overflow-hidden border border-[#343a43] bg-[#20252c] max-[900px]:aspect-[0.82] max-[900px]:h-auto max-[900px]:min-h-[360px]">
+          <div className="!absolute !inset-0" ref={containerRef} />
         </div>
       ) : (
         <MapEmptyState

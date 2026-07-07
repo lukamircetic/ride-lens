@@ -5,6 +5,11 @@ import { Effect, Layer } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 import { Activities } from "./activities";
+import type { WeatherConfig } from "./weather";
+
+export interface AppConfig extends DatabaseConfig {
+  readonly weather?: WeatherConfig | undefined;
+}
 
 export const SystemHandlers = HttpApiBuilder.group(RideLensApi, "system", (handlers) =>
   handlers.handle("health", () => Effect.succeed({ status: "ok" as const })),
@@ -78,16 +83,22 @@ export const DocsLive = HttpApiScalar.layer(RideLensApi, {
   path: "/docs",
 });
 
-export const makeAppLive = (databaseConfig?: DatabaseConfig) =>
+export const makeAppLive = (config?: AppConfig) =>
   Layer.mergeAll(ApiLive, DocsLive).pipe(
-    HttpRouter.provideRequest(Activities.layer.pipe(Layer.provide(DatabaseLayer(databaseConfig)))),
+    HttpRouter.provideRequest(
+      Activities.makeLayer(config?.weather).pipe(
+        Layer.provide(
+          DatabaseLayer({ dataDir: config?.dataDir, databaseUrl: config?.databaseUrl }),
+        ),
+      ),
+    ),
   );
 
 export const AppLive = makeAppLive();
 
-export const makeWebHandler = (databaseConfig?: DatabaseConfig) =>
+export const makeWebHandler = (config?: AppConfig) =>
   HttpRouter.toWebHandler(
-    makeAppLive(databaseConfig).pipe(Layer.provide(BunHttpServer.layerHttpServices)),
+    makeAppLive(config).pipe(Layer.provide(BunHttpServer.layerHttpServices)),
     {
       disableLogger: true,
     },
