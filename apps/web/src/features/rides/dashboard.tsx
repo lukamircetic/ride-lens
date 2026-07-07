@@ -10,7 +10,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 
 import { getActivity, importFitFile, listActivities, listActivityRoutes } from "./api";
 import { EmptyState } from "./components/empty-state";
-import { RecentComparison } from "./components/recent-comparison";
 import { RideDetail } from "./components/ride-detail";
 import { RideLog } from "./components/ride-log";
 import { SeasonSnapshot } from "./components/season-snapshot";
@@ -321,14 +320,6 @@ export function RideDashboard({
             </div>
           </div>
           <SeasonSnapshot snapshot={snapshot} totals={totals} onSelect={handleSelectActivity} />
-        </section>
-
-        <section className="mt-12">
-          <div className={sectionHeaderClassName}>
-            <div className={sectionTitleClassName}>Recent vs previous</div>
-            <div className={sectionSubClassName}>last 4 rides vs previous 4</div>
-          </div>
-          <RecentComparison snapshot={snapshot} />
         </section>
 
         <section className="mt-12">

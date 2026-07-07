@@ -13,6 +13,16 @@ Already implemented:
 - Ride log with selected ride deep links.
 - Selected ride detail with distance, speed, heart rate, climbing, profiles, laps, and GPS availability.
 - Season snapshot, recent-vs-previous comparison, and year progress.
+- MapLibre selected-ride map with metric-colored route overlays.
+- All-rides map with route highlighting and click-to-select behavior.
+- Weather ingestion, weather observation caching, and ride-level wind context summaries.
+
+Current roadmap position:
+
+- The map foundation is in place.
+- Weather is usable earlier than originally planned, but should still be treated as ride-level context until segment-level matching exists.
+- The next major product push should be manual segments: selection UI, segment persistence, and per-segment stats.
+- Strava/community segment import should be researched and isolated behind a provider boundary before any implementation. The local Ride Lens segment model should not depend on Strava data or Strava retention rights.
 
 ## Map Platform Decision
 
@@ -132,6 +142,35 @@ Scope:
 
 Initial implementation can be per-ride only. Cross-ride matching comes next.
 
+Recommended implementation shape:
+
+- Start with local/manual segments as the canonical model.
+- Store segment endpoints as snapped record indexes and distances, not just coordinates. Coordinates are useful for display, but record indexes make exact slicing and stat recomputation reproducible.
+- Store a simplified geometry snapshot for display and future matching, but keep raw FIT records as the source of truth.
+- Compute segment stats from the selected activity records on save, then make those stats cacheable/rebuildable.
+- Keep the first UI direct-manipulation based: enter segment mode, choose two snapped points on the route, preview the selected range, inspect computed stats, then save with a name.
+- Make an unsaved draft segment a first-class UI state so editing the endpoints feels reversible.
+
+Manual segment V1 data needs:
+
+- Segment definition: id, source activity id, name, start/end record indexes, start/end distances, start/end timestamps, geometry, created time, updated time.
+- Segment stats: distance, elapsed time, moving time, average speed, max speed, average HR, max HR, elevation gain, elevation loss, VAM, average cadence, average power, normalized power when available.
+- Segment source metadata: `manual`, and later optional provider fields such as `strava_segment_id` for transient/imported references if policy allows.
+
+UI principles:
+
+- Segment selection should happen on the map, not in a form.
+- The selected segment should be visible simultaneously on the map and the profile charts.
+- Endpoint adjustment should support clicking again, dragging handles, or choosing "clear" without losing the ride view.
+- The stats preview should be compact and comparable to ride stat panels.
+- The saved segment list should live near the selected ride detail first, then graduate into a dedicated segments view when cross-ride matching exists.
+
+Open design questions:
+
+- Whether segment names should default from location/climb cues or just "Segment 1".
+- Whether the initial saved segment should be tied only to one source ride, or immediately attempt matching against all existing rides after save.
+- Whether to support overlapping segments in V1. The backend should allow them; the UI can keep them simple.
+
 ### 4. Segment Comparison
 
 Goal: compare the same effort across multiple rides.
@@ -152,6 +191,14 @@ Useful derived metrics without power:
 - Pace change over the same distance.
 - HR drift within longer efforts.
 
+Recommended implementation shape:
+
+- After manual segment save, run a background/local matching pass against other rides with GPS.
+- Treat matching as derived data in `segment_efforts`, not as a mutation of the original segment definition.
+- Start with conservative matching: same direction, similar start/end proximity, sufficient geometry overlap, and distance tolerance.
+- Record match confidence and the matched activity record range so the UI can explain or reject fuzzy matches later.
+- Do not try to produce Strava-like leaderboards in V1. Focus on "my efforts over time" and "what explains the difference".
+
 ### 5. Weather And Wind Context
 
 Goal: explain why similar rides or segments felt faster/slower.
@@ -165,6 +212,30 @@ Scope:
 - Summarize a ride or segment with a "wind burden" score.
 
 Avoid promising true "normalized speed" in V1. Without power, rider position, CdA, mass, and rolling resistance, we can estimate context but not produce a physics-grade normalized speed.
+
+Status:
+
+- Ride-level weather and wind context is implemented.
+- Segment-level weather summaries should wait until segment efforts exist, then reuse the existing weather observations and wind component calculations over the matched record range.
+
+### Strava Segment Import Research
+
+Goal: determine whether Strava can be used for community segment discovery without making Ride Lens dependent on Strava data.
+
+Current read:
+
+- Strava public API exposes segment exploration, but Strava segment and leaderboard data is Strava Data.
+- Strava API terms and policy restrict display, disclosure, aggregation, geographic caching, and long-term retention. They also describe a seven-day cache limit for Strava Data.
+- Because Ride Lens is local-first and analytics-oriented, storing imported community segments indefinitely is likely not compatible without explicit permission or a licensed integration.
+- Strava Live Segments is a partner/licensed path, not a normal V1 dependency.
+
+Recommended path:
+
+- Do not import Strava community segments into the canonical local segment tables in V1.
+- If explored later, keep a `strava_segments_cache` table or provider cache that expires aggressively and can be deleted independently.
+- Let users create local manual segments from their own FIT data. Those local segments are Ride Lens data, not Strava Data.
+- Consider a "discover nearby Strava segments" experiment only after confirming current terms and access level, and only if the UI clearly treats results as temporary provider data.
+- If a user manually recreates a local segment based on their own ride, store only the local segment geometry and stats derived from their FIT file.
 
 ### 6. Ride Replay
 
@@ -203,16 +274,27 @@ Recommended path:
 
 ## Implementation Order
 
+Completed or materially started:
+
 1. Add MapLibre dependencies and `VITE_MAPTILER_API_KEY` env validation.
-2. Build `RideMap` for one selected ride.
-3. Replace the SVG route preview with `RideMap`.
+2. Build selected-ride MapLibre route map.
+3. Replace the SVG route preview with the selected-ride map.
 4. Add all-rides map mode.
-5. Add manual segment selection and per-segment stats.
-6. Save manual segments in SQLite.
-7. Add segment comparison across rides.
-8. Add weather ingestion/backfill.
-9. Add 2D ride replay.
-10. Prototype 3D terrain replay.
+5. Add weather ingestion, caching, and ride-level wind summaries.
+
+Recommended next implementation order:
+
+1. Add manual segment schema and migrations.
+2. Add backend segment stat computation for a selected activity record range.
+3. Add draft segment selection UI on the selected ride map.
+4. Add profile-chart highlighting for the selected segment range.
+5. Save named manual segments in SQLite.
+6. Show saved segments on the selected ride detail.
+7. Add segment matching against other rides and persist `segment_efforts`.
+8. Add segment comparison charts and weather-context filters.
+9. Add all-rides map filters.
+10. Add 2D ride replay.
+11. Prototype 3D terrain replay.
 
 ## Data Model Notes
 
@@ -222,6 +304,8 @@ Likely future tables:
 - `segment_efforts`: per-activity matched segment stats.
 - `weather_observations`: hourly or sampled weather data used by rides/segments.
 - `activity_weather_summaries`: cached ride-level weather and wind summaries.
+- `segment_weather_summaries`: optional cached segment-level weather/wind summaries once segment efforts exist.
+- `external_segment_cache`: optional short-lived provider cache for Strava or other segment discovery data if policy allows.
 
 Keep raw FIT records as the source of truth. Derived stats should be cacheable and reproducible.
 
