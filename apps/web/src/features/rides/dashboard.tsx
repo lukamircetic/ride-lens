@@ -1,15 +1,32 @@
 import type {
   ActivityDetailResponse,
   ActivityListResponse,
+  ActivityRoutesResponse,
   FitImportResponse,
 } from "@ride-lens/api";
+import { env } from "@ride-lens/env/web";
 import { useNavigate } from "@tanstack/react-router";
-import { FileUpIcon, RefreshCwIcon } from "lucide-react";
+import maplibregl, { type GeoJSONSource, type Map as MapLibreMap } from "maplibre-gl";
+import "maplibre-gl/dist/maplibre-gl.css";
+import {
+  FileUpIcon,
+  GaugeIcon,
+  HeartPulseIcon,
+  MapIcon,
+  MountainIcon,
+  RefreshCwIcon,
+} from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 type ActivityListItem = ActivityListResponse["activities"][number];
+type ActivityRoute = ActivityRoutesResponse["routes"][number];
+type ActivityRoutePoint = ActivityRoute["points"][number];
 type ActivityRecord = ActivityDetailResponse["records"][number];
-type ActivityLap = ActivityDetailResponse["laps"][number];
+type GeoJsonData = Parameters<GeoJSONSource["setData"]>[0];
+type MapLayerSpecification = Parameters<MapLibreMap["addLayer"]>[0];
+type MapSourceSpecification = Parameters<MapLibreMap["addSource"]>[1];
+type RouteMetric = "speed" | "heartRate" | "elevation";
+type MapStyleLayer = NonNullable<ReturnType<MapLibreMap["getStyle"]>["layers"]>[number];
 
 interface LoadState<A> {
   readonly data: A | null;
@@ -18,6 +35,13 @@ interface LoadState<A> {
 }
 
 const EMPTY_LIST: ActivityListResponse = { activities: [] };
+const EMPTY_ROUTES: ActivityRoutesResponse = { routes: [] };
+const DEFAULT_MAPTILER_STYLE_ID = "streets-v2";
+const MAPTILER_API_KEY = env.VITE_MAPTILER_API_KEY?.trim() ?? "";
+const MAPTILER_STYLE_ID = env.VITE_MAPTILER_STYLE_ID?.trim() || DEFAULT_MAPTILER_STYLE_ID;
+const MAPTILER_STYLE_URL = MAPTILER_API_KEY
+  ? `https://api.maptiler.com/maps/${encodeURIComponent(MAPTILER_STYLE_ID)}/style.json?key=${encodeURIComponent(MAPTILER_API_KEY)}`
+  : "";
 const MONTH_LABELS = [
   "Jan",
   "Feb",
@@ -144,6 +168,28 @@ const CSS = `
 [data-app="ride-lens"] .map-meta .field:first-child{border-top:0;padding-top:0}
 [data-app="ride-lens"] .map-meta .field .k{font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-3)}
 [data-app="ride-lens"] .map-meta .field .v{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:16px;margin-top:3px}
+[data-app="ride-lens"] .map-stage.map-stage-live{min-width:0}
+[data-app="ride-lens"] .map-stage .cap{display:flex;align-items:center;justify-content:space-between;gap:12px;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-3);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+[data-app="ride-lens"] .map-stage .cap span:first-child{display:inline-flex;align-items:center;gap:7px;color:var(--ink-2)}
+[data-app="ride-lens"] .map-stage .cap svg{width:13px;height:13px;color:var(--amber)}
+[data-app="ride-lens"] .map-shell{position:relative;overflow:hidden;border:1px solid #343a43;background:#20252c;min-height:420px;aspect-ratio:1.25;box-shadow:inset 0 0 0 1px rgba(255,199,44,.06),0 18px 40px rgba(0,0,0,.22)}
+[data-app="ride-lens"] .map-shell.all-rides{min-height:500px;aspect-ratio:2.05}
+[data-app="ride-lens"] .map-canvas{position:absolute;inset:0}
+[data-app="ride-lens"] .map-empty{min-height:420px;display:grid;place-items:center;border:1px solid var(--line);background:repeating-linear-gradient(45deg,var(--abyss) 0 12px,var(--night-2) 12px 13px);color:var(--ink-3);font-family:"IBM Plex Mono",monospace;font-size:12px;text-align:center;padding:22px}
+[data-app="ride-lens"] .map-empty strong{display:block;color:var(--ink);font-family:"Overpass",sans-serif;font-size:15px;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+[data-app="ride-lens"] .map-toolbar{position:absolute;left:12px;top:12px;z-index:2;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 88px)}
+[data-app="ride-lens"] .map-tool{height:32px;display:inline-flex;align-items:center;gap:6px;border:1px solid rgba(242,239,230,.24);background:rgba(21,24,30,.86);color:var(--ink-2);font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:0 9px;cursor:pointer;backdrop-filter:blur(8px)}
+[data-app="ride-lens"] .map-tool:hover{border-color:var(--amber);color:var(--ink)}
+[data-app="ride-lens"] .map-tool.active{background:var(--amber);border-color:var(--amber);color:var(--night)}
+[data-app="ride-lens"] .map-tool svg{width:13px;height:13px}
+[data-app="ride-lens"] .map-legend{position:absolute;left:12px;bottom:26px;z-index:2;min-width:190px;max-width:calc(100% - 24px);border:1px solid rgba(242,239,230,.18);background:rgba(21,24,30,.86);padding:9px 10px;backdrop-filter:blur(8px)}
+[data-app="ride-lens"] .map-legend .lk{display:flex;justify-content:space-between;gap:12px;font-family:"IBM Plex Mono",monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-3);margin-bottom:6px}
+[data-app="ride-lens"] .map-legend .grad{height:6px;background:linear-gradient(90deg,#6086ff,#f2efe6,#ffc72c);border-radius:999px}
+[data-app="ride-lens"] .map-legend .lv{display:flex;justify-content:space-between;font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--ink-3);margin-top:6px}
+[data-app="ride-lens"] .maplibregl-ctrl-group{border-radius:4px;overflow:hidden;background:rgba(21,24,30,.9);border:1px solid rgba(242,239,230,.18)}
+[data-app="ride-lens"] .maplibregl-ctrl button{filter:invert(1) grayscale(1)}
+[data-app="ride-lens"] .maplibregl-ctrl-attrib{background:rgba(21,24,30,.78);color:var(--ink-3);font-family:"IBM Plex Mono",monospace;font-size:10px}
+[data-app="ride-lens"] .maplibregl-ctrl-attrib a{color:var(--ink-2)}
 
 /* profiles */
 [data-app="ride-lens"] .profiles{display:grid;grid-template-columns:repeat(3,1fr);gap:0;border:1px solid var(--line);border-top:0;background:var(--abyss)}
@@ -218,6 +264,10 @@ const CSS = `
   [data-app="ride-lens"] .delta-panel .drow:nth-last-child(-n+3){border-bottom:1px solid var(--line-2)}
   [data-app="ride-lens"] .delta-panel .drow:last-child{border-bottom:0}
   [data-app="ride-lens"] .months{grid-template-columns:repeat(6,1fr)}
+  [data-app="ride-lens"] .map-shell,
+  [data-app="ride-lens"] .map-shell.all-rides{min-height:360px;aspect-ratio:.82}
+  [data-app="ride-lens"] .map-toolbar{right:12px;max-width:none}
+  [data-app="ride-lens"] .map-tool{height:30px;padding:0 8px}
 }
 @media (prefers-reduced-motion:reduce){[data-app="ride-lens"] *{animation:none!important;transition:none!important}}
 `;
@@ -234,6 +284,13 @@ export function RideDashboard({
     error: null,
     loading: true,
   });
+  const [activityRoutesState, setActivityRoutesState] = useState<LoadState<ActivityRoutesResponse>>(
+    {
+      data: EMPTY_ROUTES,
+      error: null,
+      loading: true,
+    },
+  );
   const [selectedActivityId, setSelectedActivityId] = useState<string | null>(initialActivityId);
   const [detailState, setDetailState] = useState<LoadState<ActivityDetailResponse>>({
     data: null,
@@ -241,12 +298,14 @@ export function RideDashboard({
     loading: false,
   });
   const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState<{ readonly current: number; readonly total: number } | null>(
-    null,
-  );
+  const [uploadProgress, setUploadProgress] = useState<{
+    readonly current: number;
+    readonly total: number;
+  } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const activities = activitiesState.data?.activities ?? [];
+  const activityRoutes = activityRoutesState.data?.routes ?? [];
   const selectedActivity =
     detailState.data?.activity ??
     activities.find((activity) => activity.id === selectedActivityId) ??
@@ -259,7 +318,9 @@ export function RideDashboard({
       setActivitiesState({ data: list, error: null, loading: false });
       const preferredId = nextSelectedId ?? selectedActivityId;
       const nextActivity =
-        list.activities.find((activity) => activity.id === preferredId) ?? list.activities[0] ?? null;
+        list.activities.find((activity) => activity.id === preferredId) ??
+        list.activities[0] ??
+        null;
       setSelectedActivityId(nextActivity?.id ?? null);
     } catch (error) {
       setActivitiesState({
@@ -270,8 +331,26 @@ export function RideDashboard({
     }
   };
 
+  const loadActivityRoutes = async () => {
+    setActivityRoutesState((current) => ({ ...current, error: null, loading: true }));
+    try {
+      const routes = await requestJson<ActivityRoutesResponse>("/api/activities/routes");
+      setActivityRoutesState({ data: routes, error: null, loading: false });
+    } catch (error) {
+      setActivityRoutesState({
+        data: activityRoutesState.data,
+        error: errorToMessage(error, "Could not load ride routes."),
+        loading: false,
+      });
+    }
+  };
+
+  const refreshDashboard = async (nextSelectedId?: string) => {
+    await Promise.all([loadActivities(nextSelectedId), loadActivityRoutes()]);
+  };
+
   useEffect(() => {
-    void loadActivities();
+    void refreshDashboard();
   }, []);
 
   useEffect(() => {
@@ -293,7 +372,11 @@ export function RideDashboard({
       })
       .catch((error: unknown) => {
         if (!cancelled)
-          setDetailState({ data: null, error: errorToMessage(error, "Could not load ride details."), loading: false });
+          setDetailState({
+            data: null,
+            error: errorToMessage(error, "Could not load ride details."),
+            loading: false,
+          });
       });
     return () => {
       cancelled = true;
@@ -320,7 +403,7 @@ export function RideDashboard({
       }
       const selectedImportId = importedIds.at(-1);
       if (selectedImportId) {
-        await loadActivities(selectedImportId);
+        await refreshDashboard(selectedImportId);
         await navigate({ to: "/rides/$activityId", params: { activityId: selectedImportId } });
       }
       if (failures.length > 0) setUploadError(formatImportFailures(failures, uploadFiles.length));
@@ -370,8 +453,8 @@ export function RideDashboard({
               <button
                 type="button"
                 className="rh-btn"
-                disabled={activitiesState.loading}
-                onClick={() => void loadActivities()}
+                disabled={activitiesState.loading || activityRoutesState.loading}
+                onClick={() => void refreshDashboard()}
               >
                 <RefreshCwIcon />
                 Refresh
@@ -382,6 +465,9 @@ export function RideDashboard({
 
         {uploadError ? <div className="status error">{uploadError}</div> : null}
         {activitiesState.error ? <div className="status error">{activitiesState.error}</div> : null}
+        {activityRoutesState.error ? (
+          <div className="status error">{activityRoutesState.error}</div>
+        ) : null}
 
         {/* RIDE TABLE */}
         {activities.length === 0 && !activitiesState.loading ? (
@@ -392,7 +478,9 @@ export function RideDashboard({
               <div className="sec-title">
                 <b>▲</b> Ride log
               </div>
-              <div className="sec-sub">{activitiesState.loading ? "loading" : `${activities.length} rides`}</div>
+              <div className="sec-sub">
+                {activitiesState.loading ? "loading" : `${activities.length} rides`}
+              </div>
             </div>
             <table className="ride-table">
               <thead>
@@ -415,7 +503,9 @@ export function RideDashboard({
                     <td>{String(i + 1).padStart(2, "0")}</td>
                     <td className="name">{formatRideTitle(activity)}</td>
                     <td>{formatDate(activity.summary.startTime)}</td>
-                    <td className="r amber">{formatDistance(activity.summary.totalDistanceMeters)}</td>
+                    <td className="r amber">
+                      {formatDistance(activity.summary.totalDistanceMeters)}
+                    </td>
                     <td className="r">{formatDuration(activity.summary.totalMovingSeconds)}</td>
                     <td className="r">{formatSpeed(activity.summary.avgSpeedMetersPerSecond)}</td>
                   </tr>
@@ -425,6 +515,27 @@ export function RideDashboard({
           </section>
         )}
 
+        {activities.length > 0 ? (
+          <section className="section">
+            <div className="sec-head">
+              <div className="sec-title">
+                <b>▲</b> All-rides map
+              </div>
+              <div className="sec-sub">
+                {activityRoutesState.loading
+                  ? "loading routes"
+                  : `${activityRoutes.length} mapped rides`}
+              </div>
+            </div>
+            <AllRidesMap
+              routes={activityRoutes}
+              selectedActivityId={selectedActivityId}
+              loading={activityRoutesState.loading}
+              onSelect={handleSelectActivity}
+            />
+          </section>
+        ) : null}
+
         {/* SELECTED RIDE DETAIL */}
         {selectedActivity ? (
           <section className="section">
@@ -432,7 +543,11 @@ export function RideDashboard({
               <div className="sec-title">
                 <b>▲</b> Selected ride
               </div>
-              <div className="sec-sub">{detailState.loading ? "loading detail" : `${detailState.data?.records.length ?? 0} records`}</div>
+              <div className="sec-sub">
+                {detailState.loading
+                  ? "loading detail"
+                  : `${detailState.data?.records.length ?? 0} records`}
+              </div>
             </div>
             <RideDetail
               activity={selectedActivity}
@@ -450,7 +565,9 @@ export function RideDashboard({
               <div className="sec-title">
                 <b>▲</b> Season snapshot
               </div>
-              <div className="sec-sub">{snapshot.activeMonths} active {snapshot.activeMonths === 1 ? "month" : "months"}</div>
+              <div className="sec-sub">
+                {snapshot.activeMonths} active {snapshot.activeMonths === 1 ? "month" : "months"}
+              </div>
             </div>
             <SeasonSnapshot snapshot={snapshot} totals={totals} onSelect={handleSelectActivity} />
           </section>
@@ -544,16 +661,36 @@ function RideDetail({
       {error ? <div className="status error">{error}</div> : null}
 
       <div className="signs" style={{ marginTop: 4 }}>
-        <Sign label="Distance" value={formatDistance(activity.summary.totalDistanceMeters)} cap={`${formatDuration(activity.summary.totalMovingSeconds)} moving`} accent />
-        <Sign label="Speed" value={formatSpeed(activity.summary.avgSpeedMetersPerSecond)} cap={`${formatSpeed(activity.summary.maxSpeedMetersPerSecond)} max`} />
-        <Sign label="Heart rate" value={formatBpm(activity.summary.avgHeartRateBpm)} cap={`${formatBpm(activity.summary.maxHeartRateBpm)} max`} />
-        <Sign label="Climbing" value={formatElevation(activity.summary.totalAscentMeters)} cap={`${formatCalories(activity.summary.calories)} burned`} />
+        <Sign
+          label="Distance"
+          value={formatDistance(activity.summary.totalDistanceMeters)}
+          cap={`${formatDuration(activity.summary.totalMovingSeconds)} moving`}
+          accent
+        />
+        <Sign
+          label="Speed"
+          value={formatSpeed(activity.summary.avgSpeedMetersPerSecond)}
+          cap={`${formatSpeed(activity.summary.maxSpeedMetersPerSecond)} max`}
+        />
+        <Sign
+          label="Heart rate"
+          value={formatBpm(activity.summary.avgHeartRateBpm)}
+          cap={`${formatBpm(activity.summary.maxHeartRateBpm)} max`}
+        />
+        <Sign
+          label="Climbing"
+          value={formatElevation(activity.summary.totalAscentMeters)}
+          cap={`${formatCalories(activity.summary.calories)} burned`}
+        />
       </div>
 
       <div className="map-grid" style={{ marginTop: 14 }}>
         <RouteMap records={records} loading={loading} />
         <div className="map-meta">
-          <Field k="Avg power" v={`${formatWatts(activity.summary.avgPowerWatts)} / ${formatWatts(activity.summary.maxPowerWatts)} max`} />
+          <Field
+            k="Avg power"
+            v={`${formatWatts(activity.summary.avgPowerWatts)} / ${formatWatts(activity.summary.maxPowerWatts)} max`}
+          />
           <Field k="Cadence" v={formatCadence(activity.summary.avgCadenceRpm)} />
           <Field k="Descent" v={formatElevation(activity.summary.totalDescentMeters)} />
           <Field k="GPS" v={activity.summary.hasGps ? "available" : "missing"} />
@@ -624,36 +761,266 @@ function RideDetail({
   );
 }
 
-function RouteMap({ records, loading }: { readonly records: ReadonlyArray<ActivityRecord>; readonly loading: boolean }) {
-  const points = useMemo(() => projectRoutePoints(records), [records]);
+function RouteMap({
+  records,
+  loading,
+}: {
+  readonly records: ReadonlyArray<ActivityRecord>;
+  readonly loading: boolean;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const loadedRef = useRef(false);
+  const [metric, setMetric] = useState<RouteMetric>("speed");
+  const points = useMemo(() => recordsToRoutePoints(records), [records]);
   const hasRoute = points.length >= 2;
-  const polyline = points.map((p) => `${p.x.toFixed(2)},${p.y.toFixed(2)}`).join(" ");
-  const start = points[0];
-  const end = points.at(-1);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current || !MAPTILER_STYLE_URL || !hasRoute) return;
+
+    const firstPoint = points[0];
+    if (!firstPoint) return;
+
+    const map = new maplibregl.Map({
+      attributionControl: false,
+      container: containerRef.current,
+      center: [firstPoint.longitude, firstPoint.latitude],
+      style: MAPTILER_STYLE_URL,
+      zoom: 12,
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    mapRef.current = map;
+
+    map.on("load", () => {
+      loadedRef.current = true;
+      applyAppleDarkBasemapStyle(map);
+      addSelectedRouteLayers(map);
+      updateSelectedRouteData(map, points, metric);
+      fitMapToPoints(map, points, { padding: 48 });
+    });
+
+    return () => {
+      loadedRef.current = false;
+      mapRef.current = null;
+      map.remove();
+    };
+  }, [hasRoute]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+
+    updateSelectedRouteData(map, points, metric);
+  }, [points, metric]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || points.length < 2) return;
+
+    fitMapToPoints(map, points, { padding: 48 });
+  }, [points]);
 
   return (
-    <div className="map-stage">
+    <div className="map-stage map-stage-live">
       <div className="cap">
-        <span>Route</span>
+        <span>
+          <MapIcon />
+          Route
+        </span>
         <span>{loading ? "loading" : `${points.length} GPS points`}</span>
       </div>
-      {hasRoute ? (
-        <svg viewBox="0 0 100 100" role="img" aria-label="Ride route" style={{ width: "100%", height: "auto", display: "block", aspectRatio: "1" }}>
-          <pattern id="map-grid" width="10" height="10" patternUnits="userSpaceOnUse">
-            <path d="M 10 0 L 0 0 0 10" fill="none" stroke="var(--line-2)" strokeWidth="0.25" />
-          </pattern>
-          <rect width="100" height="100" fill="url(#map-grid)" />
-          <polyline points={polyline} fill="none" stroke="#f2efe6" strokeWidth="2.4" strokeLinejoin="round" strokeLinecap="round" opacity="0.95" />
-          <polyline points={polyline} fill="none" stroke="#1b1d21" strokeWidth="1.5" strokeLinejoin="round" strokeLinecap="round" />
-          <polyline points={polyline} fill="none" stroke="#ffc72c" strokeWidth="0.5" strokeLinejoin="round" strokeLinecap="round" strokeDasharray="0.5 2" />
-          {start ? <circle cx={start.x} cy={start.y} r="1.4" fill="#f2efe6" stroke="#1b1d21" strokeWidth="0.4" /> : null}
-          {end ? <circle cx={end.x} cy={end.y} r="1.4" fill="#ffc72c" stroke="#1b1d21" strokeWidth="0.4" /> : null}
-        </svg>
-      ) : (
-        <div style={{ aspectRatio: "1", display: "grid", placeItems: "center", border: "1px solid var(--line)", color: "var(--ink-3)", fontFamily: '"IBM Plex Mono",monospace', fontSize: 12 }}>
-          No GPS route for this ride.
+      {!MAPTILER_STYLE_URL ? (
+        <MapEmptyState
+          title="Map key missing"
+          body="Add VITE_MAPTILER_API_KEY to apps/web/.env or apps/web/.env.local."
+        />
+      ) : hasRoute ? (
+        <div className="map-shell">
+          <div className="map-toolbar" aria-label="Route metric">
+            <MapMetricButton metric="speed" activeMetric={metric} onSelect={setMetric} />
+            <MapMetricButton metric="heartRate" activeMetric={metric} onSelect={setMetric} />
+            <MapMetricButton metric="elevation" activeMetric={metric} onSelect={setMetric} />
+          </div>
+          <div className="map-canvas" ref={containerRef} />
+          <MapLegend metric={metric} points={points} />
         </div>
+      ) : (
+        <MapEmptyState
+          title="No GPS route"
+          body="This ride does not have enough GPS points to render a route."
+        />
       )}
+    </div>
+  );
+}
+
+function AllRidesMap({
+  routes,
+  selectedActivityId,
+  loading,
+  onSelect,
+}: {
+  readonly routes: ReadonlyArray<ActivityRoute>;
+  readonly selectedActivityId: string | null;
+  readonly loading: boolean;
+  readonly onSelect: (activityId: string) => void;
+}) {
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const mapRef = useRef<MapLibreMap | null>(null);
+  const loadedRef = useRef(false);
+  const onSelectRef = useRef(onSelect);
+  const routesWithGps = useMemo(() => routes.filter((route) => route.points.length >= 2), [routes]);
+  const totalPoints = useMemo(
+    () => routesWithGps.reduce((sum, route) => sum + route.points.length, 0),
+    [routesWithGps],
+  );
+  const hasRoutes = routesWithGps.length > 0;
+
+  useEffect(() => {
+    onSelectRef.current = onSelect;
+  }, [onSelect]);
+
+  useEffect(() => {
+    if (!containerRef.current || mapRef.current || !MAPTILER_STYLE_URL || !hasRoutes) return;
+
+    const firstPoint = routesWithGps[0]?.points[0];
+    if (!firstPoint) return;
+
+    const map = new maplibregl.Map({
+      attributionControl: false,
+      container: containerRef.current,
+      center: [firstPoint.longitude, firstPoint.latitude],
+      style: MAPTILER_STYLE_URL,
+      zoom: 10,
+    });
+
+    map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), "top-right");
+    map.addControl(new maplibregl.AttributionControl({ compact: true }), "bottom-right");
+    mapRef.current = map;
+
+    map.on("load", () => {
+      loadedRef.current = true;
+      applyAppleDarkBasemapStyle(map);
+      addAllRideRouteLayers(map);
+      updateAllRideRouteData(map, routesWithGps, selectedActivityId);
+      fitMapToRoutes(map, routesWithGps, { padding: 56 });
+    });
+    map.on("click", "all-ride-routes-hit", (event) => {
+      const activityId = event.features?.[0]?.properties?.activityId;
+      if (typeof activityId === "string") onSelectRef.current(activityId);
+    });
+    map.on("mouseenter", "all-ride-routes-hit", () => {
+      map.getCanvas().style.cursor = "pointer";
+    });
+    map.on("mouseleave", "all-ride-routes-hit", () => {
+      map.getCanvas().style.cursor = "";
+    });
+
+    return () => {
+      loadedRef.current = false;
+      mapRef.current = null;
+      map.remove();
+    };
+  }, [hasRoutes]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+
+    updateAllRideRouteData(map, routesWithGps, selectedActivityId);
+  }, [routesWithGps, selectedActivityId]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !loadedRef.current || routesWithGps.length === 0) return;
+
+    fitMapToRoutes(map, routesWithGps, { padding: 56 });
+  }, [routesWithGps]);
+
+  return (
+    <div className="map-stage map-stage-live">
+      <div className="cap">
+        <span>
+          <MapIcon />
+          Routes
+        </span>
+        <span>{loading ? "loading" : `${totalPoints} GPS points`}</span>
+      </div>
+      {!MAPTILER_STYLE_URL ? (
+        <MapEmptyState
+          title="Map key missing"
+          body="Add VITE_MAPTILER_API_KEY to apps/web/.env or apps/web/.env.local."
+        />
+      ) : hasRoutes ? (
+        <div className="map-shell all-rides">
+          <div className="map-canvas" ref={containerRef} />
+        </div>
+      ) : (
+        <MapEmptyState
+          title="No mapped rides"
+          body="Upload rides with GPS records to populate the map."
+        />
+      )}
+    </div>
+  );
+}
+
+function MapMetricButton({
+  metric,
+  activeMetric,
+  onSelect,
+}: {
+  readonly metric: RouteMetric;
+  readonly activeMetric: RouteMetric;
+  readonly onSelect: (metric: RouteMetric) => void;
+}) {
+  const Icon =
+    metric === "speed" ? GaugeIcon : metric === "heartRate" ? HeartPulseIcon : MountainIcon;
+  return (
+    <button
+      type="button"
+      className={`map-tool${metric === activeMetric ? " active" : ""}`}
+      onClick={() => onSelect(metric)}
+      aria-pressed={metric === activeMetric}
+    >
+      <Icon />
+      {metricLabel(metric)}
+    </button>
+  );
+}
+
+function MapLegend({
+  metric,
+  points,
+}: {
+  readonly metric: RouteMetric;
+  readonly points: ReadonlyArray<ActivityRoutePoint>;
+}) {
+  const range = getMetricRange(points, metric);
+  return (
+    <div className="map-legend" aria-hidden="true">
+      <div className="lk">
+        <span>{metricLabel(metric)}</span>
+        <span>{range === null ? "n/a" : `${formatMetricValue(range.max, metric)} max`}</span>
+      </div>
+      <div className="grad" />
+      <div className="lv">
+        <span>{range === null ? "low" : formatMetricValue(range.min, metric)}</span>
+        <span>{range === null ? "high" : formatMetricValue(range.max, metric)}</span>
+      </div>
+    </div>
+  );
+}
+
+function MapEmptyState({ title, body }: { readonly title: string; readonly body: string }) {
+  return (
+    <div className="map-empty">
+      <div>
+        <strong>{title}</strong>
+        <span>{body}</span>
+      </div>
     </div>
   );
 }
@@ -676,8 +1043,7 @@ function ProfilePanel({
   readonly area?: boolean;
 }) {
   const values = useMemo(
-    () =>
-      records.map(getValue).filter((v): v is number => v !== null && Number.isFinite(v)),
+    () => records.map(getValue).filter((v): v is number => v !== null && Number.isFinite(v)),
     [records, getValue],
   );
   const last = values.at(-1);
@@ -691,10 +1057,24 @@ function ProfilePanel({
         <span>{label}</span>
         <b>{last === undefined ? "no data" : formatValue(last)}</b>
       </div>
-      <svg viewBox="0 0 600 150" style={{ width: "100%", height: "auto", marginTop: 10, display: "block" }} role="img" aria-label={`${label} profile`}>
+      <svg
+        viewBox="0 0 600 150"
+        style={{ width: "100%", height: "auto", marginTop: 10, display: "block" }}
+        role="img"
+        aria-label={`${label} profile`}
+      >
         <line x1="0" y1="138" x2="600" y2="138" stroke="var(--line)" strokeWidth="1" />
         {areaPath ? <path d={areaPath} fill={fill} fillOpacity="0.18" /> : null}
-        {path ? <path d={path} fill="none" stroke={stroke} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" /> : null}
+        {path ? (
+          <path
+            d={path}
+            fill="none"
+            stroke={stroke}
+            strokeWidth="2"
+            strokeLinejoin="round"
+            strokeLinecap="round"
+          />
+        ) : null}
       </svg>
       <div className="paxis">
         <span>start</span>
@@ -718,7 +1098,10 @@ function Sign({
   readonly onClick?: () => void;
 }) {
   return (
-    <div className={`sign${accent ? " accent" : ""}${onClick ? " clickable" : ""}`} onClick={onClick}>
+    <div
+      className={`sign${accent ? " accent" : ""}${onClick ? " clickable" : ""}`}
+      onClick={onClick}
+    >
       <div className="lbl">{label}</div>
       <div className="num">{value}</div>
       {cap ? <div className="cap">{cap}</div> : null}
@@ -755,29 +1138,55 @@ function SeasonSnapshot({
       <div className="bests">
         <Sign
           label="Longest ride"
-          value={snapshot.longestRide ? formatDistance(snapshot.longestRide.summary.totalDistanceMeters) : "n/a"}
-          cap={snapshot.longestRide ? formatDate(snapshot.longestRide.summary.startTime) : undefined}
+          value={
+            snapshot.longestRide
+              ? formatDistance(snapshot.longestRide.summary.totalDistanceMeters)
+              : "n/a"
+          }
+          cap={
+            snapshot.longestRide ? formatDate(snapshot.longestRide.summary.startTime) : undefined
+          }
           accent
           onClick={snapshot.longestRide ? () => onSelect(snapshot.longestRide!.id) : undefined}
         />
         <Sign
           label="Fastest average"
-          value={snapshot.fastestRide ? formatSpeed(snapshot.fastestRide.summary.avgSpeedMetersPerSecond) : "n/a"}
-          cap={snapshot.fastestRide ? formatDistance(snapshot.fastestRide.summary.totalDistanceMeters) : undefined}
+          value={
+            snapshot.fastestRide
+              ? formatSpeed(snapshot.fastestRide.summary.avgSpeedMetersPerSecond)
+              : "n/a"
+          }
+          cap={
+            snapshot.fastestRide
+              ? formatDistance(snapshot.fastestRide.summary.totalDistanceMeters)
+              : undefined
+          }
           accent
           onClick={snapshot.fastestRide ? () => onSelect(snapshot.fastestRide!.id) : undefined}
         />
         <Sign
           label="Most climbing"
-          value={snapshot.biggestClimb ? formatElevation(snapshot.biggestClimb.summary.totalAscentMeters) : "n/a"}
-          cap={snapshot.biggestClimb ? formatDate(snapshot.biggestClimb.summary.startTime) : undefined}
+          value={
+            snapshot.biggestClimb
+              ? formatElevation(snapshot.biggestClimb.summary.totalAscentMeters)
+              : "n/a"
+          }
+          cap={
+            snapshot.biggestClimb ? formatDate(snapshot.biggestClimb.summary.startTime) : undefined
+          }
           accent
           onClick={snapshot.biggestClimb ? () => onSelect(snapshot.biggestClimb!.id) : undefined}
         />
         <Sign
           label="Latest ride"
-          value={snapshot.latestRide ? formatDistance(snapshot.latestRide.summary.totalDistanceMeters) : "n/a"}
-          cap={snapshot.latestRide ? formatDateTime(snapshot.latestRide.summary.startTime) : undefined}
+          value={
+            snapshot.latestRide
+              ? formatDistance(snapshot.latestRide.summary.totalDistanceMeters)
+              : "n/a"
+          }
+          cap={
+            snapshot.latestRide ? formatDateTime(snapshot.latestRide.summary.startTime) : undefined
+          }
           accent
           onClick={snapshot.latestRide ? () => onSelect(snapshot.latestRide!.id) : undefined}
         />
@@ -790,11 +1199,33 @@ function RecentComparison({ snapshot }: { readonly snapshot: SeasonSnapshotData 
   return (
     <div className="delta-panel">
       <Delta k="Recent distance" v={formatDistance(snapshot.recentDistanceMeters)} />
-      <Delta k="Previous distance" v={snapshot.previousDistanceMeters === null ? "n/a" : formatDistance(snapshot.previousDistanceMeters)} />
-      <Delta k="Distance delta" v={formatDeltaDistance(snapshot.distanceDeltaMeters)} up={snapshot.distanceDeltaMeters !== null && snapshot.distanceDeltaMeters > 0} />
+      <Delta
+        k="Previous distance"
+        v={
+          snapshot.previousDistanceMeters === null
+            ? "n/a"
+            : formatDistance(snapshot.previousDistanceMeters)
+        }
+      />
+      <Delta
+        k="Distance delta"
+        v={formatDeltaDistance(snapshot.distanceDeltaMeters)}
+        up={snapshot.distanceDeltaMeters !== null && snapshot.distanceDeltaMeters > 0}
+      />
       <Delta k="Recent average" v={formatSpeed(snapshot.recentAvgSpeedMetersPerSecond)} />
-      <Delta k="Previous average" v={snapshot.previousAvgSpeedMetersPerSecond === null ? "n/a" : formatSpeed(snapshot.previousAvgSpeedMetersPerSecond)} />
-      <Delta k="Speed delta" v={formatDeltaSpeed(snapshot.speedDeltaMetersPerSecond)} up={snapshot.speedDeltaMetersPerSecond !== null && snapshot.speedDeltaMetersPerSecond > 0} />
+      <Delta
+        k="Previous average"
+        v={
+          snapshot.previousAvgSpeedMetersPerSecond === null
+            ? "n/a"
+            : formatSpeed(snapshot.previousAvgSpeedMetersPerSecond)
+        }
+      />
+      <Delta
+        k="Speed delta"
+        v={formatDeltaSpeed(snapshot.speedDeltaMetersPerSecond)}
+        up={snapshot.speedDeltaMetersPerSecond !== null && snapshot.speedDeltaMetersPerSecond > 0}
+      />
     </div>
   );
 }
@@ -813,7 +1244,8 @@ function YearProgress({ activities }: { readonly activities: ReadonlyArray<Activ
     const totals = Array.from({ length: 12 }, (_, month) => ({ month, distanceMeters: 0 }));
     for (const activity of activities) {
       const date = parseIsoDate(activity.summary.startTime);
-      if (date) totals[date.getMonth()]!.distanceMeters += activity.summary.totalDistanceMeters ?? 0;
+      if (date)
+        totals[date.getMonth()]!.distanceMeters += activity.summary.totalDistanceMeters ?? 0;
     }
     return totals;
   }, [activities]);
@@ -831,11 +1263,17 @@ function YearProgress({ activities }: { readonly activities: ReadonlyArray<Activ
           return (
             <div className="month" key={m.month}>
               <div className="track">
-                <div className="bar" style={{ height: `${h}%` }} title={formatDistance(m.distanceMeters)} />
+                <div
+                  className="bar"
+                  style={{ height: `${h}%` }}
+                  title={formatDistance(m.distanceMeters)}
+                />
               </div>
               <div className="ml">
                 <span>{MONTH_LABELS[m.month]}</span>
-                <b>{m.distanceMeters > 0 ? formatDistance(m.distanceMeters).replace(" km", "") : "—"}</b>
+                <b>
+                  {m.distanceMeters > 0 ? formatDistance(m.distanceMeters).replace(" km", "") : "—"}
+                </b>
               </div>
             </div>
           );
@@ -919,7 +1357,8 @@ function summarizeSeason(activities: ReadonlyArray<ActivityListItem>): SeasonSna
   const recentDistanceMeters = sumDistance(recent);
   const previousDistanceMeters = previous.length > 0 ? sumDistance(previous) : null;
   const recentAvgSpeedMetersPerSecond = weightedAverageSpeed(recent);
-  const previousAvgSpeedMetersPerSecond = previous.length > 0 ? weightedAverageSpeed(previous) : null;
+  const previousAvgSpeedMetersPerSecond =
+    previous.length > 0 ? weightedAverageSpeed(previous) : null;
   return {
     activeMonths,
     latestRide: ordered[0] ?? null,
@@ -928,7 +1367,8 @@ function summarizeSeason(activities: ReadonlyArray<ActivityListItem>): SeasonSna
     biggestClimb: maxBy(ordered, (a) => a.summary.totalAscentMeters),
     recentDistanceMeters,
     previousDistanceMeters,
-    distanceDeltaMeters: previousDistanceMeters === null ? null : recentDistanceMeters - previousDistanceMeters,
+    distanceDeltaMeters:
+      previousDistanceMeters === null ? null : recentDistanceMeters - previousDistanceMeters,
     recentAvgSpeedMetersPerSecond,
     previousAvgSpeedMetersPerSecond,
     speedDeltaMetersPerSecond:
@@ -967,29 +1407,488 @@ function weightedAverageSpeed(activities: ReadonlyArray<ActivityListItem>): numb
   return movingSeconds > 0 ? sumDistance(activities) / movingSeconds : null;
 }
 
-function projectRoutePoints(records: ReadonlyArray<ActivityRecord>) {
-  const gps = records.filter(
-    (r) =>
-      typeof r.latitude === "number" &&
-      typeof r.longitude === "number" &&
-      Number.isFinite(r.latitude) &&
-      Number.isFinite(r.longitude),
+function recordsToRoutePoints(records: ReadonlyArray<ActivityRecord>): Array<ActivityRoutePoint> {
+  return records
+    .filter(
+      (record) =>
+        typeof record.latitude === "number" &&
+        typeof record.longitude === "number" &&
+        Number.isFinite(record.latitude) &&
+        Number.isFinite(record.longitude),
+    )
+    .map((record) => ({
+      recordIndex: record.recordIndex,
+      latitude: record.latitude!,
+      longitude: record.longitude!,
+      altitudeMeters: record.altitudeMeters,
+      distanceMeters: record.distanceMeters,
+      speedMetersPerSecond: record.speedMetersPerSecond,
+      heartRateBpm: record.heartRateBpm,
+    }));
+}
+
+function applyAppleDarkBasemapStyle(map: MapLibreMap) {
+  const layers = map.getStyle().layers ?? [];
+
+  for (const layer of layers) {
+    if (isRideLensLayer(layer.id)) continue;
+
+    const key = layerKey(layer);
+    if (shouldHideBasemapLayer(key)) {
+      setLayerVisibility(map, layer.id, "none");
+      continue;
+    }
+
+    if (layer.type === "background") {
+      setLayerPaint(map, layer.id, "background-color", "#242a31");
+      continue;
+    }
+
+    if (layer.type === "fill") {
+      styleFillLayer(map, layer.id, key);
+      continue;
+    }
+
+    if (layer.type === "line") {
+      styleLineLayer(map, layer.id, key);
+      continue;
+    }
+
+    if (layer.type === "symbol") {
+      styleSymbolLayer(map, layer.id, key);
+    }
+  }
+}
+
+function styleFillLayer(map: MapLibreMap, layerId: string, key: string) {
+  if (key.includes("water")) {
+    setLayerPaint(map, layerId, "fill-color", "#1a3041");
+    setLayerPaint(map, layerId, "fill-opacity", 0.9);
+    return;
+  }
+
+  if (/(park|landcover|landuse|wood|forest|grass|natural|vegetation)/i.test(key)) {
+    setLayerPaint(map, layerId, "fill-color", "#24352d");
+    setLayerPaint(map, layerId, "fill-opacity", 0.58);
+    return;
+  }
+
+  setLayerPaint(map, layerId, "fill-color", "#252b32");
+  setLayerPaint(map, layerId, "fill-opacity", 0.94);
+}
+
+function styleLineLayer(map: MapLibreMap, layerId: string, key: string) {
+  if (key.includes("water")) {
+    setLayerPaint(map, layerId, "line-color", "#2b4b61");
+    setLayerPaint(map, layerId, "line-opacity", 0.58);
+    return;
+  }
+
+  if (/(bridge|tunnel|case|casing)/i.test(key)) {
+    setLayerPaint(map, layerId, "line-color", "#313a43");
+    setLayerPaint(map, layerId, "line-opacity", 0.58);
+    return;
+  }
+
+  if (/(motorway|trunk|primary|major)/i.test(key)) {
+    setLayerZoomRange(map, layerId, 5, 24);
+    setLayerPaint(map, layerId, "line-color", "#56616c");
+    setLayerPaint(map, layerId, "line-opacity", 0.66);
+    return;
+  }
+
+  if (/(secondary|tertiary|transportation|road|street|highway|route)/i.test(key)) {
+    setLayerZoomRange(map, layerId, 6, 24);
+    setLayerPaint(map, layerId, "line-color", "#424d58");
+    setLayerPaint(map, layerId, "line-opacity", 0.56);
+    return;
+  }
+
+  if (/(path|track|minor|service)/i.test(key)) {
+    setLayerZoomRange(map, layerId, 8, 24);
+    setLayerPaint(map, layerId, "line-color", "#37434d");
+    setLayerPaint(map, layerId, "line-opacity", 0.42);
+    return;
+  }
+
+  if (/(boundary|admin|contour)/i.test(key)) {
+    setLayerPaint(map, layerId, "line-color", "#4c5560");
+    setLayerPaint(map, layerId, "line-opacity", 0.28);
+    return;
+  }
+
+  setLayerPaint(map, layerId, "line-color", "#414b55");
+  setLayerPaint(map, layerId, "line-opacity", 0.44);
+}
+
+function styleSymbolLayer(map: MapLibreMap, layerId: string, key: string) {
+  if (/(place|city|town|village|settlement)/i.test(key)) {
+    setLayerPaint(map, layerId, "text-color", "#d8dde2");
+    setLayerPaint(map, layerId, "text-halo-color", "#252b32");
+    setLayerPaint(map, layerId, "text-halo-width", 1.4);
+    setLayerPaint(map, layerId, "text-opacity", 0.88);
+    return;
+  }
+
+  if (/(road|street|highway|route|transportation)/i.test(key)) {
+    setLayerZoomRange(map, layerId, 7, 24);
+    setLayerPaint(map, layerId, "text-color", "#909ba5");
+    setLayerPaint(map, layerId, "text-halo-color", "#252b32");
+    setLayerPaint(map, layerId, "text-halo-width", 1);
+    setLayerPaint(map, layerId, "text-opacity", 0.56);
+    return;
+  }
+
+  setLayerPaint(map, layerId, "text-color", "#aab2ba");
+  setLayerPaint(map, layerId, "text-halo-color", "#252b32");
+  setLayerPaint(map, layerId, "text-halo-width", 1);
+  setLayerPaint(map, layerId, "text-opacity", 0.46);
+}
+
+function shouldHideBasemapLayer(key: string): boolean {
+  return /(rail|train|transit|station|subway|tram|airport|aeroway|ferry|poi|building|address|housenumber|parking|school|hospital|shop|restaurant|hotel|tourism|ski|hillshade|shade|terrain)/i.test(
+    key,
   );
-  if (gps.length < 2) return [];
-  const lats = gps.map((r) => r.latitude!);
-  const lons = gps.map((r) => r.longitude!);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLon = Math.min(...lons);
-  const maxLon = Math.max(...lons);
-  const latRange = Math.max(maxLat - minLat, 0.00001);
-  const lonRange = Math.max(maxLon - minLon, 0.00001);
-  const padding = 8;
-  const size = 100 - padding * 2;
-  return gps.map((r) => ({
-    x: padding + ((r.longitude! - minLon) / lonRange) * size,
-    y: padding + (1 - (r.latitude! - minLat) / latRange) * size,
-  }));
+}
+
+function layerKey(layer: MapStyleLayer): string {
+  const sourceLayer =
+    "source-layer" in layer && typeof layer["source-layer"] === "string"
+      ? layer["source-layer"]
+      : "";
+  return `${layer.id} ${sourceLayer}`.toLowerCase();
+}
+
+function isRideLensLayer(layerId: string): boolean {
+  return layerId.startsWith("selected-route") || layerId.startsWith("all-ride-routes");
+}
+
+function setLayerVisibility(map: MapLibreMap, layerId: string, visibility: "visible" | "none") {
+  if (!map.getLayer(layerId)) return;
+  map.setLayoutProperty(layerId, "visibility", visibility);
+}
+
+function setLayerPaint(map: MapLibreMap, layerId: string, property: string, value: unknown) {
+  if (!map.getLayer(layerId)) return;
+  try {
+    map.setPaintProperty(layerId, property, value);
+  } catch {
+    // MapTiler styles vary by layer type and style version; unsupported paint keys are harmless.
+  }
+}
+
+function setLayerZoomRange(map: MapLibreMap, layerId: string, minzoom: number, maxzoom: number) {
+  if (!map.getLayer(layerId)) return;
+  try {
+    map.setLayerZoomRange(layerId, minzoom, maxzoom);
+  } catch {
+    // Some generated style layers may not accept runtime zoom-range changes.
+  }
+}
+
+function addSelectedRouteLayers(map: MapLibreMap) {
+  if (map.getSource("selected-route-segments")) return;
+
+  map.addSource("selected-route-segments", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+  map.addSource("selected-route-points", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+  map.addLayer({
+    id: "selected-route-casing",
+    type: "line",
+    source: "selected-route-segments",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#111820",
+      "line-opacity": 0.98,
+      "line-width": 11,
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "selected-route-glow",
+    type: "line",
+    source: "selected-route-segments",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#ffc72c",
+      "line-blur": 1.1,
+      "line-opacity": 0.58,
+      "line-width": 8,
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "selected-route-line",
+    type: "line",
+    source: "selected-route-segments",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": ["get", "color"],
+      "line-width": 5.4,
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "selected-route-points",
+    type: "circle",
+    source: "selected-route-points",
+    paint: {
+      "circle-color": ["case", ["==", ["get", "kind"], "start"], "#f2efe6", "#ffc72c"],
+      "circle-radius": ["case", ["==", ["get", "kind"], "start"], 5, 6],
+      "circle-stroke-color": "#1b1d21",
+      "circle-stroke-width": 2,
+    },
+  } as MapLayerSpecification);
+}
+
+function updateSelectedRouteData(
+  map: MapLibreMap,
+  points: ReadonlyArray<ActivityRoutePoint>,
+  metric: RouteMetric,
+) {
+  setGeoJsonSourceData(
+    map,
+    "selected-route-segments",
+    routeSegmentsFeatureCollection(points, metric),
+  );
+  setGeoJsonSourceData(map, "selected-route-points", routeEndpointsFeatureCollection(points));
+}
+
+function addAllRideRouteLayers(map: MapLibreMap) {
+  if (map.getSource("all-ride-routes")) return;
+
+  map.addSource("all-ride-routes", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+  map.addLayer({
+    id: "all-ride-routes-casing",
+    type: "line",
+    source: "all-ride-routes",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#07090d",
+      "line-opacity": ["case", ["boolean", ["get", "selected"], false], 0.95, 0.74],
+      "line-width": ["case", ["boolean", ["get", "selected"], false], 9, 5],
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "all-ride-routes-line",
+    type: "line",
+    source: "all-ride-routes",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": ["case", ["boolean", ["get", "selected"], false], "#ffc72c", "#78b7c8"],
+      "line-opacity": ["case", ["boolean", ["get", "selected"], false], 1, 0.82],
+      "line-width": ["case", ["boolean", ["get", "selected"], false], 4.4, 2.5],
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "all-ride-routes-hit",
+    type: "line",
+    source: "all-ride-routes",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#000000",
+      "line-opacity": 0,
+      "line-width": 18,
+    },
+  } as MapLayerSpecification);
+}
+
+function updateAllRideRouteData(
+  map: MapLibreMap,
+  routes: ReadonlyArray<ActivityRoute>,
+  selectedActivityId: string | null,
+) {
+  setGeoJsonSourceData(
+    map,
+    "all-ride-routes",
+    allRideRoutesFeatureCollection(routes, selectedActivityId),
+  );
+}
+
+function setGeoJsonSourceData(map: MapLibreMap, sourceId: string, data: unknown) {
+  const source = map.getSource(sourceId);
+  if (!source || !("setData" in source)) return;
+
+  (source as GeoJSONSource).setData(data as GeoJsonData);
+}
+
+function routeSegmentsFeatureCollection(
+  points: ReadonlyArray<ActivityRoutePoint>,
+  metric: RouteMetric,
+) {
+  const range = getMetricRange(points, metric);
+  const features = [];
+  for (let index = 1; index < points.length; index += 1) {
+    const previous = points[index - 1];
+    const current = points[index];
+    if (!previous || !current) continue;
+
+    const value = getMetricValue(current, metric);
+    features.push({
+      type: "Feature",
+      properties: {
+        color: getMetricColor(value, range),
+      },
+      geometry: {
+        type: "LineString",
+        coordinates: [
+          [previous.longitude, previous.latitude],
+          [current.longitude, current.latitude],
+        ],
+      },
+    });
+  }
+
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}
+
+function routeEndpointsFeatureCollection(points: ReadonlyArray<ActivityRoutePoint>) {
+  const start = points[0];
+  const end = points.at(-1);
+  const features = [];
+  if (start) {
+    features.push({
+      type: "Feature",
+      properties: { kind: "start" },
+      geometry: { type: "Point", coordinates: [start.longitude, start.latitude] },
+    });
+  }
+  if (end) {
+    features.push({
+      type: "Feature",
+      properties: { kind: "end" },
+      geometry: { type: "Point", coordinates: [end.longitude, end.latitude] },
+    });
+  }
+
+  return {
+    type: "FeatureCollection",
+    features,
+  };
+}
+
+function allRideRoutesFeatureCollection(
+  routes: ReadonlyArray<ActivityRoute>,
+  selectedActivityId: string | null,
+) {
+  return {
+    type: "FeatureCollection",
+    features: routes
+      .filter((route) => route.points.length >= 2)
+      .map((route) => ({
+        type: "Feature",
+        properties: {
+          activityId: route.activity.id,
+          name: formatRideTitle(route.activity),
+          selected: route.activity.id === selectedActivityId,
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: route.points.map((point) => [point.longitude, point.latitude]),
+        },
+      })),
+  };
+}
+
+function emptyFeatureCollection() {
+  return {
+    type: "FeatureCollection",
+    features: [],
+  };
+}
+
+function fitMapToRoutes(
+  map: MapLibreMap,
+  routes: ReadonlyArray<ActivityRoute>,
+  options: { readonly padding: number },
+) {
+  const points = routes.flatMap((route) => route.points);
+  fitMapToPoints(map, points, options);
+}
+
+function fitMapToPoints(
+  map: MapLibreMap,
+  points: ReadonlyArray<ActivityRoutePoint>,
+  options: { readonly padding: number },
+) {
+  if (points.length < 2) return;
+
+  const bounds = new maplibregl.LngLatBounds();
+  for (const point of points) {
+    bounds.extend([point.longitude, point.latitude]);
+  }
+
+  if (bounds.isEmpty()) return;
+
+  map.fitBounds(bounds, {
+    duration: 650,
+    maxZoom: 15,
+    padding: options.padding,
+  });
+}
+
+function getMetricRange(points: ReadonlyArray<ActivityRoutePoint>, metric: RouteMetric) {
+  const values = points
+    .map((point) => getMetricValue(point, metric))
+    .filter((value): value is number => value !== null && Number.isFinite(value));
+  if (values.length === 0) return null;
+
+  return {
+    min: Math.min(...values),
+    max: Math.max(...values),
+  };
+}
+
+function getMetricValue(point: ActivityRoutePoint, metric: RouteMetric): number | null {
+  if (metric === "speed") return point.speedMetersPerSecond;
+  if (metric === "heartRate") return point.heartRateBpm;
+  return point.altitudeMeters;
+}
+
+function getMetricColor(
+  value: number | null,
+  range: { readonly min: number; readonly max: number } | null,
+): string {
+  if (value === null || range === null) return "#f2efe6";
+
+  const span = Math.max(range.max - range.min, 0.00001);
+  const t = span === 0.00001 ? 0.5 : Math.min(1, Math.max(0, (value - range.min) / span));
+  if (t < 0.5) {
+    return interpolateColor([96, 134, 255], [242, 239, 230], t * 2);
+  }
+
+  return interpolateColor([242, 239, 230], [255, 199, 44], (t - 0.5) * 2);
+}
+
+function interpolateColor(
+  from: readonly [number, number, number],
+  to: readonly [number, number, number],
+  t: number,
+) {
+  const r = Math.round(from[0] + (to[0] - from[0]) * t);
+  const g = Math.round(from[1] + (to[1] - from[1]) * t);
+  const b = Math.round(from[2] + (to[2] - from[2]) * t);
+  return `rgb(${r}, ${g}, ${b})`;
+}
+
+function metricLabel(metric: RouteMetric): string {
+  if (metric === "speed") return "Speed";
+  if (metric === "heartRate") return "Heart rate";
+  return "Elevation";
+}
+
+function formatMetricValue(value: number, metric: RouteMetric): string {
+  if (metric === "speed") return formatSpeed(value);
+  if (metric === "heartRate") return formatBpm(value);
+  return `${Math.round(value).toLocaleString()} m`;
 }
 
 function buildProfilePath(
@@ -1049,7 +1948,9 @@ function formatDate(value: string | null): string {
 function formatDateTime(value: string | null): string {
   const date = parseIsoDate(value);
   if (date === null) return "Date unavailable";
-  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(date);
+  return new Intl.DateTimeFormat(undefined, { dateStyle: "medium", timeStyle: "short" }).format(
+    date,
+  );
 }
 
 function formatDistance(value: number | null): string {
@@ -1126,7 +2027,9 @@ async function uploadFitFile(file: File): Promise<FitImportResponse> {
   return requestJson<FitImportResponse>("/api/activities/import", { method: "POST", body: form });
 }
 
-function formatUploadProgress(progress: { readonly current: number; readonly total: number } | null): string {
+function formatUploadProgress(
+  progress: { readonly current: number; readonly total: number } | null,
+): string {
   return progress ? `Importing ${progress.current}/${progress.total}` : "Importing";
 }
 

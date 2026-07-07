@@ -10,7 +10,10 @@ export const Route = createRootRouteWithContext<RouterAppContext>()({
   head: () => ({
     meta: [
       { title: "Ride Lens" },
-      { name: "description", content: "Private cycling analytics dashboard for FIT activity files." },
+      {
+        name: "description",
+        content: "Private cycling analytics dashboard for FIT activity files.",
+      },
     ],
     links: [
       { rel: "icon", href: "/favicon.ico" },

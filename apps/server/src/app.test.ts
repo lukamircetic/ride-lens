@@ -10,6 +10,7 @@ import type {
 import type {
   ActivityDetailResponse,
   ActivityListResponse,
+  ActivityRoutesResponse,
   FitImportResponse,
 } from "@ride-lens/api";
 import { mkdtemp, rm } from "node:fs/promises";
@@ -263,6 +264,49 @@ describe("Ride Lens API", () => {
       totalDistanceMeters: 25000,
       avgPowerWatts: 210,
     });
+  });
+
+  it("lists lightweight activity routes for map rendering", async () => {
+    const form = new FormData();
+    form.append("file", new Blob([makeRideFitFile()]), "morning-ride.fit");
+
+    const importResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        body: form,
+      }),
+    );
+    const imported = (await importResponse.json()) as FitImportResponse;
+
+    const routesResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/routes"),
+    );
+    expect(routesResponse.status).toBe(200);
+
+    const routesBody = (await routesResponse.json()) as ActivityRoutesResponse;
+    expect(routesBody.routes).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          activity: expect.objectContaining({ id: imported.importId }),
+          points: [
+            expect.objectContaining({
+              recordIndex: 0,
+              latitude: expect.any(Number),
+              longitude: expect.any(Number),
+              heartRateBpm: 135,
+              speedMetersPerSecond: 6.5,
+            }),
+            expect.objectContaining({
+              recordIndex: 1,
+              latitude: expect.any(Number),
+              longitude: expect.any(Number),
+              heartRateBpm: 142,
+              speedMetersPerSecond: 7.1,
+            }),
+          ],
+        }),
+      ]),
+    );
   });
 
   it("returns 404 for unknown activity detail", async () => {

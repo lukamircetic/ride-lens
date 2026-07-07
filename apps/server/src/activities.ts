@@ -1,6 +1,7 @@
 import type {
   ActivityDetailResponse,
   ActivityListResponse,
+  ActivityRoutesResponse,
   FitImportResponse,
 } from "@ride-lens/api";
 import { RideLensDatabase } from "@ride-lens/db";
@@ -13,6 +14,7 @@ import {
 } from "./activity-imports";
 import {
   getActivityDetail,
+  listActivityRoutes,
   listActivities,
   type ActivityNotFoundError,
   type ActivityQueryError,
@@ -32,6 +34,7 @@ export class Activities extends Context.Service<
       ActivityInvalidFileTypeError | ActivityInvalidFitError | ActivityImportInternalError
     >;
     readonly list: () => Effect.Effect<ActivityListResponse, ActivityQueryError>;
+    readonly listRoutes: () => Effect.Effect<ActivityRoutesResponse, ActivityQueryError>;
     readonly getDetail: (
       activityId: string,
     ) => Effect.Effect<ActivityDetailResponse, ActivityNotFoundError | ActivityQueryError>;
@@ -54,6 +57,9 @@ export class Activities extends Context.Service<
         }),
         list: Effect.fn("Activities.list")(function* () {
           return yield* listActivities(database);
+        }),
+        listRoutes: Effect.fn("Activities.listRoutes")(function* () {
+          return yield* listActivityRoutes(database);
         }),
         getDetail: Effect.fn("Activities.getDetail")(function* (activityId: string) {
           return yield* getActivityDetail(database, activityId);

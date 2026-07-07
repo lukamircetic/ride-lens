@@ -9,6 +9,8 @@ V1 is intentionally local-first:
 - Persist the original FIT file plus normalized ride summaries, records, and laps in SQLite.
 - View ride list, selected ride stats, route shape, speed/elevation/heart-rate profiles, yearly progress, and season highlights.
 
+See [docs/feature-roadmap.md](docs/feature-roadmap.md) for the map, segment, replay, weather, and 3D terrain roadmap.
+
 ## Stack
 
 - `apps/web`: React, TanStack Router, Tailwind CSS, Vite+

@@ -1,4 +1,8 @@
-import type { ActivityDetailResponse, ActivityListResponse } from "@ride-lens/api";
+import type {
+  ActivityDetailResponse,
+  ActivityListResponse,
+  ActivityRoutesResponse,
+} from "@ride-lens/api";
 import {
   activities,
   activity_laps,
@@ -9,7 +13,7 @@ import {
   type RideLensDrizzleDatabase,
   type RideLensDatabaseService,
 } from "@ride-lens/db";
-import { asc, desc, eq } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { Data, Effect } from "effect";
 
 export class ActivityQueryError extends Data.TaggedError("ActivityQueryError")<{
@@ -23,6 +27,20 @@ export class ActivityNotFoundError extends Data.TaggedError("ActivityNotFoundErr
 
 type ActivityRecordRow = typeof activity_records.$inferSelect;
 type ActivityLapRow = typeof activity_laps.$inferSelect;
+type ActivityRoutePointResponse = ActivityRoutesResponse["routes"][number]["points"][number];
+
+const MAX_ROUTE_OVERVIEW_POINTS = 250;
+
+interface ActivityRouteRecordRow {
+  readonly activityId: string;
+  readonly recordIndex: number;
+  readonly latitude: number | null;
+  readonly longitude: number | null;
+  readonly altitudeMeters: number | null;
+  readonly distanceMeters: number | null;
+  readonly speedMetersPerSecond: number | null;
+  readonly heartRateBpm: number | null;
+}
 
 interface ActivityWithFile {
   readonly activity: ActivityRow;
@@ -45,6 +63,19 @@ export const listActivities = (
       activities: rows.map(activityWithFileToListItem),
     };
   });
+
+export const listActivityRoutes = Effect.fn("ActivityQueries.listActivityRoutes")(function* (
+  database: RideLensDatabaseService,
+) {
+  const routes = yield* Effect.tryPromise({
+    try: () => queryActivityRoutes(database.db),
+    catch: toActivityQueryError("Failed to list activity routes"),
+  });
+
+  return {
+    routes,
+  };
+});
 
 export const getActivityDetail = (
   database: RideLensDatabaseService,
@@ -116,6 +147,52 @@ const queryActivityDetail = async (
   };
 };
 
+const queryActivityRoutes = async (
+  db: RideLensDrizzleDatabase,
+): Promise<ActivityRoutesResponse["routes"]> => {
+  const rows = await queryActivityRows(db);
+  const records = await db
+    .select({
+      activityId: activity_records.activity_id,
+      recordIndex: activity_records.record_index,
+      latitude: activity_records.latitude,
+      longitude: activity_records.longitude,
+      altitudeMeters: activity_records.altitude_meters,
+      distanceMeters: activity_records.distance_meters,
+      speedMetersPerSecond: activity_records.speed_meters_per_second,
+      heartRateBpm: activity_records.heart_rate_bpm,
+    })
+    .from(activity_records)
+    .where(and(isNotNull(activity_records.latitude), isNotNull(activity_records.longitude)))
+    .orderBy(asc(activity_records.activity_id), asc(activity_records.record_index));
+
+  const pointsByActivity = new Map<string, Array<ActivityRoutePointResponse>>();
+  for (const record of records) {
+    if (
+      record.latitude === null ||
+      record.longitude === null ||
+      !Number.isFinite(record.latitude) ||
+      !Number.isFinite(record.longitude)
+    ) {
+      continue;
+    }
+
+    const points = pointsByActivity.get(record.activityId) ?? [];
+    points.push(activityRecordRowToRoutePoint(record));
+    pointsByActivity.set(record.activityId, points);
+  }
+
+  return rows
+    .map((row) => ({
+      activity: activityWithFileToListItem(row),
+      points: thinRoutePoints(
+        pointsByActivity.get(row.activity.id) ?? [],
+        MAX_ROUTE_OVERVIEW_POINTS,
+      ),
+    }))
+    .filter((route) => route.points.length >= 2);
+};
+
 const activityWithFileToListItem = ({
   activity,
   fitFile,
@@ -174,6 +251,35 @@ const activityRecordRowToResponse = (
   gradePercent: record.grade_percent,
   gpsAccuracyMeters: record.gps_accuracy_meters,
 });
+
+const activityRecordRowToRoutePoint = (
+  record: ActivityRouteRecordRow,
+): ActivityRoutePointResponse => ({
+  recordIndex: record.recordIndex,
+  latitude: record.latitude!,
+  longitude: record.longitude!,
+  altitudeMeters: record.altitudeMeters,
+  distanceMeters: record.distanceMeters,
+  speedMetersPerSecond: record.speedMetersPerSecond,
+  heartRateBpm: record.heartRateBpm,
+});
+
+const thinRoutePoints = (
+  points: ReadonlyArray<ActivityRoutePointResponse>,
+  maxPoints: number,
+): Array<ActivityRoutePointResponse> => {
+  if (points.length <= maxPoints) return [...points];
+
+  const lastIndex = points.length - 1;
+  const sampled = new Map<number, ActivityRoutePointResponse>();
+  for (let index = 0; index < maxPoints; index += 1) {
+    const sourceIndex = Math.round((index / (maxPoints - 1)) * lastIndex);
+    const point = points[sourceIndex];
+    if (point) sampled.set(sourceIndex, point);
+  }
+
+  return [...sampled.entries()].sort(([a], [b]) => a - b).map(([, point]) => point);
+};
 
 const activityLapRowToResponse = (lap: ActivityLapRow): ActivityDetailResponse["laps"][number] => ({
   lapIndex: lap.lap_index,

@@ -73,6 +73,25 @@ export const ActivityListResponse = Schema.Struct({
   activities: Schema.Array(ActivityListItem),
 });
 
+export const ActivityRoutePoint = Schema.Struct({
+  recordIndex: Schema.Number,
+  latitude: Schema.Number,
+  longitude: Schema.Number,
+  altitudeMeters: Schema.NullOr(Schema.Number),
+  distanceMeters: Schema.NullOr(Schema.Number),
+  speedMetersPerSecond: Schema.NullOr(Schema.Number),
+  heartRateBpm: Schema.NullOr(Schema.Number),
+});
+
+export const ActivityRouteItem = Schema.Struct({
+  activity: ActivityListItem,
+  points: Schema.Array(ActivityRoutePoint),
+});
+
+export const ActivityRoutesResponse = Schema.Struct({
+  routes: Schema.Array(ActivityRouteItem),
+});
+
 export const ActivityRecord = Schema.Struct({
   recordIndex: Schema.Number,
   timestamp: Schema.NullOr(Schema.String),
@@ -118,6 +137,7 @@ export const ActivityDetailResponse = Schema.Struct({
 });
 
 export type ActivityListResponse = Schema.Schema.Type<typeof ActivityListResponse>;
+export type ActivityRoutesResponse = Schema.Schema.Type<typeof ActivityRoutesResponse>;
 export type ActivityDetailResponse = Schema.Schema.Type<typeof ActivityDetailResponse>;
 
 export const SystemApi = HttpApiGroup.make("system", { topLevel: true }).add(
@@ -138,6 +158,12 @@ export const ActivitiesApi = HttpApiGroup.make("activities", { topLevel: true })
   .add(
     HttpApiEndpoint.get("listActivities", "/api/activities", {
       success: ActivityListResponse,
+      error: HttpApiError.InternalServerErrorNoContent,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("listActivityRoutes", "/api/activities/routes", {
+      success: ActivityRoutesResponse,
       error: HttpApiError.InternalServerErrorNoContent,
     }),
   )

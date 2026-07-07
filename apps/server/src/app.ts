@@ -45,6 +45,17 @@ export const ActivityHandlers = HttpApiBuilder.group(RideLensApi, "activities", 
         ),
       ),
     )
+    .handle("listActivityRoutes", () =>
+      Effect.gen(function* () {
+        const activities = yield* Activities;
+
+        return yield* activities.listRoutes();
+      }).pipe(
+        Effect.catchTag("ActivityQueryError", () =>
+          Effect.fail(new HttpApiError.InternalServerError({})),
+        ),
+      ),
+    )
     .handle("getActivity", ({ params }) =>
       Effect.gen(function* () {
         const activities = yield* Activities;
