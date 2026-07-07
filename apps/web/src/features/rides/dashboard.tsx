@@ -8,6 +8,11 @@ import { useNavigate } from "@tanstack/react-router";
 import { FileUpIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+import cyclistFrame1 from "./assets/cyclist-1.png";
+import cyclistFrame2 from "./assets/cyclist-2.png";
+import cyclistFrame3 from "./assets/cyclist-3.png";
+import cyclistFrame4 from "./assets/cyclist-4.png";
+
 import { getActivity, importFitFile, listActivities, listActivityRoutes } from "./api";
 import { EmptyState } from "./components/empty-state";
 import { RideDetail } from "./components/ride-detail";
@@ -36,6 +41,8 @@ const sectionSubClassName = "font-ride text-[11px] text-ride-ink-dim";
 
 const uploadButtonClassName =
   "inline-flex cursor-pointer items-center gap-2 border border-ride-line bg-ride-night-2 px-3.5 py-[9px] font-ride text-xs font-bold uppercase text-ride-ink transition-colors hover:border-ride-amber hover:text-ride-amber disabled:cursor-default disabled:opacity-50 [&_svg]:size-[15px]";
+
+const cyclistFrames = [cyclistFrame1, cyclistFrame2, cyclistFrame3, cyclistFrame4] as const;
 
 export function RideDashboard({
   initialActivityId = null,
@@ -224,10 +231,19 @@ export function RideDashboard({
             >
               Ride Lens
             </a>
-            <span
-              className="h-[3px] flex-1 -translate-y-0.5 bg-[repeating-linear-gradient(90deg,var(--amber)_0_26px,transparent_26px_44px)]"
-              aria-hidden="true"
-            />
+            <div className="ride-header-road" aria-hidden="true">
+              <span className="ride-header-rider">
+                {cyclistFrames.map((frame) => (
+                  <img
+                    key={frame}
+                    className="ride-header-rider-frame"
+                    src={frame}
+                    alt=""
+                    draggable={false}
+                  />
+                ))}
+              </span>
+            </div>
             <div className="flex gap-2 whitespace-nowrap">
               <input
                 ref={fileInputRef}
