@@ -140,6 +140,11 @@ export type ActivityListResponse = Schema.Schema.Type<typeof ActivityListRespons
 export type ActivityRoutesResponse = Schema.Schema.Type<typeof ActivityRoutesResponse>;
 export type ActivityDetailResponse = Schema.Schema.Type<typeof ActivityDetailResponse>;
 
+export const decodeFitImportResponse = Schema.decodeUnknownPromise(FitImportResponse);
+export const decodeActivityListResponse = Schema.decodeUnknownPromise(ActivityListResponse);
+export const decodeActivityRoutesResponse = Schema.decodeUnknownPromise(ActivityRoutesResponse);
+export const decodeActivityDetailResponse = Schema.decodeUnknownPromise(ActivityDetailResponse);
+
 export const SystemApi = HttpApiGroup.make("system", { topLevel: true }).add(
   HttpApiEndpoint.get("health", "/health", {
     success: HealthResponse,

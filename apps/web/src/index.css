@@ -1,1 +1,1180 @@
 @import "@ride-lens/ui/globals.css";
+@import "maplibre-gl/dist/maplibre-gl.css";
+
+[data-app="ride-lens"] {
+  --night: #1b1d21;
+  --night-2: #23262c;
+  --abyss: #15181e;
+  --ink: #f2efe6;
+  --ink-2: #bdb9ad;
+  --ink-3: #7d7a70;
+  --line: #3a3f47;
+  --line-2: #2a2d33;
+  --amber: #ffc72c;
+  --amber-2: #ffd95f;
+  --amber-deep: #9c7a12;
+  --sign-green: #0b5138;
+  --sign-green-edge: #0a3f2c;
+  background: var(--night);
+  color: var(--ink);
+  font-family: "Overpass", system-ui, sans-serif;
+  font-feature-settings: "tnum" 1;
+  -webkit-font-smoothing: antialiased;
+  min-height: 100svh;
+}
+
+[data-app="ride-lens"] * {
+  box-sizing: border-box;
+}
+
+[data-app="ride-lens"] .mono {
+  font-family: "Overpass Mono", ui-monospace, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+[data-app="ride-lens"] .wrap {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 0 28px 60px;
+}
+
+[data-app="ride-lens"] .road-header {
+  padding: 26px 0 22px;
+}
+
+[data-app="ride-lens"] .road-header .rh-row {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+[data-app="ride-lens"] .rh-title {
+  font-family: "Overpass", sans-serif;
+  font-weight: 900;
+  font-size: 30px;
+  line-height: 1;
+  letter-spacing: .03em;
+  text-transform: uppercase;
+  color: var(--ink);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+[data-app="ride-lens"] .rh-line {
+  flex: 1;
+  height: 3px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--amber) 0 26px,
+    transparent 26px 44px
+  );
+  transform: translateY(-2px);
+}
+
+[data-app="ride-lens"] .rh-actions {
+  display: flex;
+  gap: 8px;
+  white-space: nowrap;
+}
+
+[data-app="ride-lens"] .rh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-family: "Overpass", sans-serif;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink);
+  background: var(--night-2);
+  border: 1px solid var(--line);
+  padding: 9px 14px;
+  cursor: pointer;
+  transition:
+    color .15s,
+    border-color .15s;
+}
+
+[data-app="ride-lens"] .rh-btn:hover {
+  color: var(--amber);
+  border-color: var(--amber);
+}
+
+[data-app="ride-lens"] .rh-btn:disabled {
+  opacity: .5;
+  cursor: default;
+}
+
+[data-app="ride-lens"] .rh-btn svg {
+  width: 15px;
+  height: 15px;
+}
+
+[data-app="ride-lens"] .status {
+  margin-top: 18px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--amber);
+  padding: 12px 14px;
+  font-size: 14px;
+  color: var(--ink-2);
+}
+
+[data-app="ride-lens"] .status.error {
+  border-left-color: #c8362c;
+  color: #e6a59d;
+}
+
+[data-app="ride-lens"] .gantry {
+  margin-top: 26px;
+  background: var(--sign-green);
+  color: #fff;
+  border: 4px solid #fff;
+  box-shadow:
+    0 0 0 4px var(--sign-green-edge),
+    0 22px 50px rgb(0 0 0 / .45);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+[data-app="ride-lens"] .gantry-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 24px;
+  padding: 15px 24px;
+  border-top: 2px solid rgb(255 255 255 / .85);
+}
+
+[data-app="ride-lens"] .gantry-row:first-child {
+  border-top: 0;
+}
+
+[data-app="ride-lens"] .gantry-dest {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-family: "Overpass", sans-serif;
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
+
+[data-app="ride-lens"] .gantry-val {
+  font-family: "Overpass Mono", monospace;
+  font-weight: 800;
+  font-size: 26px;
+  letter-spacing: .01em;
+  white-space: nowrap;
+}
+
+[data-app="ride-lens"] .gantry-val small {
+  font-size: .5em;
+  font-weight: 600;
+  opacity: .8;
+  margin-left: 6px;
+}
+
+[data-app="ride-lens"] .section {
+  margin-top: 48px;
+}
+
+[data-app="ride-lens"] .sec-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+[data-app="ride-lens"] .sec-title {
+  font-family: "Overpass Mono", monospace;
+  font-size: 12px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  color: var(--ink-2);
+}
+
+[data-app="ride-lens"] .sec-sub {
+  font-family: "Overpass Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-3);
+  letter-spacing: .06em;
+}
+
+[data-app="ride-lens"] .chart {
+  position: relative;
+  border: 1px solid var(--line);
+  background: var(--abyss);
+  padding: 14px;
+}
+
+[data-app="ride-lens"] .chart .corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border: 1px solid var(--amber);
+  opacity: .7;
+}
+
+[data-app="ride-lens"] .chart .corner.tl {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+}
+
+[data-app="ride-lens"] .chart .corner.tr {
+  top: -1px;
+  right: -1px;
+  border-left: 0;
+  border-bottom: 0;
+}
+
+[data-app="ride-lens"] .chart .corner.bl {
+  bottom: -1px;
+  left: -1px;
+  border-right: 0;
+  border-top: 0;
+}
+
+[data-app="ride-lens"] .chart .corner.br {
+  right: -1px;
+  bottom: -1px;
+  border-left: 0;
+  border-top: 0;
+}
+
+[data-app="ride-lens"] .chart .cap {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+[data-app="ride-lens"] .signs {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 14px;
+}
+
+[data-app="ride-lens"] .sign {
+  background: var(--night-2);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+[data-app="ride-lens"] button.sign {
+  width: 100%;
+}
+
+[data-app="ride-lens"] .sign .lbl {
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .sign .num {
+  font-family: "Overpass Mono", monospace;
+  font-weight: 800;
+  font-size: 26px;
+  margin-top: 8px;
+  line-height: 1;
+  letter-spacing: .01em;
+  color: var(--ink);
+}
+
+[data-app="ride-lens"] .sign .num small {
+  font-size: .46em;
+  color: var(--ink-2);
+  font-weight: 600;
+  margin-left: 5px;
+}
+
+[data-app="ride-lens"] .sign .cap {
+  margin-top: 10px;
+  font-family: "Overpass Mono", monospace;
+  font-size: 11px;
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .sign.accent {
+  border-color: var(--amber);
+}
+
+[data-app="ride-lens"] .sign.accent .num {
+  color: var(--amber);
+}
+
+[data-app="ride-lens"] .sign.clickable {
+  cursor: pointer;
+  transition:
+    border-color .15s,
+    background .15s;
+}
+
+[data-app="ride-lens"] .sign.clickable:hover {
+  background: var(--abyss);
+  border-color: var(--amber);
+}
+
+[data-app="ride-lens"] .ride-overview-grid {
+  display: grid;
+  grid-template-columns: minmax(360px, .72fr) minmax(520px, 1.28fr);
+  gap: 18px;
+  align-items: stretch;
+}
+
+[data-app="ride-lens"] .ride-log-panel,
+[data-app="ride-lens"] .ride-map-panel {
+  min-width: 0;
+}
+
+[data-app="ride-lens"] .ride-log-panel,
+[data-app="ride-lens"] .ride-map-panel {
+  display: flex;
+  flex-direction: column;
+}
+
+[data-app="ride-lens"] .ride-log-panel .sec-head,
+[data-app="ride-lens"] .ride-map-panel .sec-head {
+  margin-bottom: 12px;
+}
+
+[data-app="ride-lens"] .ride-map-panel .sec-head {
+  justify-content: flex-end;
+}
+
+[data-app="ride-lens"] .ride-log-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+[data-app="ride-lens"] .ride-page-btn {
+  width: 28px;
+  height: 28px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: var(--night-2);
+  color: var(--ink-2);
+  font-family: "Overpass Mono", monospace;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+[data-app="ride-lens"] .ride-page-btn:hover {
+  border-color: var(--amber);
+  color: var(--amber);
+}
+
+[data-app="ride-lens"] .ride-page-btn:disabled {
+  opacity: .38;
+  cursor: default;
+  border-color: var(--line);
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .ride-table-frame {
+  height: 456px;
+}
+
+[data-app="ride-lens"] .ride-table {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  font-family: "Overpass Mono", monospace;
+  font-size: 13px;
+}
+
+[data-app="ride-lens"] .ride-col-index {
+  width: 42px;
+}
+
+[data-app="ride-lens"] .ride-col-distance {
+  width: 94px;
+}
+
+[data-app="ride-lens"] .ride-col-duration {
+  width: 86px;
+}
+
+[data-app="ride-lens"] .ride-col-speed {
+  width: 96px;
+}
+
+[data-app="ride-lens"] .ride-table th {
+  text-align: left;
+  font-weight: 500;
+  color: var(--ink-3);
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  font-size: 10px;
+  height: 36px;
+  padding: 0 9px;
+  border-bottom: 1px solid var(--line);
+}
+
+[data-app="ride-lens"] .ride-table td {
+  height: 42px;
+  padding: 0 9px;
+  border-bottom: 1px solid var(--line-2);
+  color: var(--ink-2);
+  white-space: nowrap;
+}
+
+[data-app="ride-lens"] .ride-table td.name {
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+[data-app="ride-lens"] .ride-table td.amber {
+  color: var(--amber-2);
+}
+
+[data-app="ride-lens"] .ride-table tbody tr {
+  cursor: pointer;
+  transition: background .12s;
+}
+
+[data-app="ride-lens"] .ride-table tbody tr:hover td {
+  background: rgb(255 199 44 / .06);
+}
+
+[data-app="ride-lens"] .ride-table tbody tr.selected td {
+  background: rgb(255 199 44 / .1);
+  border-bottom-color: transparent;
+}
+
+[data-app="ride-lens"] .ride-table tbody tr.hovered td {
+  background: rgb(120 183 200 / .08);
+  border-bottom-color: transparent;
+}
+
+[data-app="ride-lens"] .ride-table th.r,
+[data-app="ride-lens"] .ride-table td.r {
+  text-align: right;
+}
+
+[data-app="ride-lens"] .detail-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+[data-app="ride-lens"] .detail-head .name {
+  font-family: "Overpass", sans-serif;
+  font-weight: 800;
+  font-size: 22px;
+  letter-spacing: .01em;
+  text-transform: uppercase;
+  line-height: 1.1;
+}
+
+[data-app="ride-lens"] .detail-head .when {
+  font-family: "Overpass Mono", monospace;
+  font-size: 12px;
+  color: var(--ink-3);
+  margin-top: 5px;
+  letter-spacing: .04em;
+}
+
+[data-app="ride-lens"] .map-grid {
+  display: grid;
+  grid-template-columns: 1.4fr .6fr;
+  gap: 0;
+  border: 1px solid var(--line);
+  background: var(--abyss);
+}
+
+[data-app="ride-lens"] .ride-detail-map-grid {
+  margin-top: 14px;
+}
+
+[data-app="ride-lens"] .map-stage {
+  padding: 14px;
+}
+
+[data-app="ride-lens"] .map-stage.map-stage-live {
+  min-width: 0;
+}
+
+[data-app="ride-lens"] .map-stage .cap {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  margin-bottom: 10px;
+}
+
+[data-app="ride-lens"] .map-stage .cap span:first-child {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--ink-2);
+}
+
+[data-app="ride-lens"] .map-stage .cap svg {
+  width: 13px;
+  height: 13px;
+  color: var(--amber);
+}
+
+[data-app="ride-lens"] .map-shell {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #343a43;
+  background: #20252c;
+  min-height: 420px;
+  aspect-ratio: 1.25;
+}
+
+[data-app="ride-lens"] .ride-map-panel .map-stage {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+}
+
+[data-app="ride-lens"] .map-shell.all-rides {
+  flex: 1;
+  height: auto;
+  min-height: 0;
+  aspect-ratio: auto;
+}
+
+[data-app="ride-lens"] .map-canvas {
+  position: absolute;
+  inset: 0;
+}
+
+[data-app="ride-lens"] .maplibregl-map,
+[data-app="ride-lens"] .maplibregl-map * {
+  font-family: "Overpass Mono", monospace;
+}
+
+[data-app="ride-lens"] .map-empty {
+  min-height: 420px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--line);
+  background: repeating-linear-gradient(
+    45deg,
+    var(--abyss) 0 12px,
+    var(--night-2) 12px 13px
+  );
+  color: var(--ink-3);
+  font-family: "Overpass Mono", monospace;
+  font-size: 12px;
+  text-align: center;
+  padding: 22px;
+}
+
+[data-app="ride-lens"] .map-empty strong {
+  display: block;
+  color: var(--ink);
+  font-family: "Overpass", sans-serif;
+  font-size: 15px;
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  margin-bottom: 6px;
+}
+
+[data-app="ride-lens"] .map-toolbar {
+  position: absolute;
+  left: 12px;
+  top: 12px;
+  z-index: 2;
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  max-width: calc(100% - 88px);
+}
+
+[data-app="ride-lens"] .map-tool {
+  height: 32px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid rgb(242 239 230 / .24);
+  background: rgb(21 24 30 / .86);
+  color: var(--ink-2);
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  padding: 0 9px;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+[data-app="ride-lens"] .map-tool:hover {
+  border-color: var(--amber);
+  color: var(--ink);
+}
+
+[data-app="ride-lens"] .map-tool.active {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: var(--night);
+}
+
+[data-app="ride-lens"] .map-tool:disabled {
+  opacity: .38;
+  cursor: default;
+  border-color: rgb(242 239 230 / .16);
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .map-tool:disabled:hover {
+  border-color: rgb(242 239 230 / .16);
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .map-tool svg {
+  width: 13px;
+  height: 13px;
+}
+
+[data-app="ride-lens"] .map-legend {
+  position: absolute;
+  left: 12px;
+  bottom: 26px;
+  z-index: 2;
+  min-width: 190px;
+  max-width: calc(100% - 24px);
+  border: 1px solid rgb(242 239 230 / .18);
+  background: rgb(21 24 30 / .86);
+  padding: 9px 10px;
+  backdrop-filter: blur(8px);
+}
+
+[data-app="ride-lens"] .map-legend .lk {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin-bottom: 6px;
+}
+
+[data-app="ride-lens"] .map-legend .grad {
+  height: 6px;
+  background: linear-gradient(90deg, #6086ff, #f2efe6, #ffc72c);
+  border-radius: 999px;
+}
+
+[data-app="ride-lens"] .map-legend .lv {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+  margin-top: 6px;
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl-group {
+  border-radius: 4px;
+  overflow: hidden;
+  background: rgb(21 24 30 / .9);
+  border: 1px solid rgb(242 239 230 / .18);
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl,
+[data-app="ride-lens"] .maplibregl-ctrl * {
+  font-family: "Overpass Mono", monospace;
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl button {
+  filter: invert(1) grayscale(1);
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl-attrib {
+  background: rgb(21 24 30 / .86);
+  color: var(--ink-3);
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  border: 1px solid rgb(242 239 230 / .18);
+  border-radius: 999px;
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl-attrib.maplibregl-compact {
+  background: rgb(21 24 30 / .86);
+  min-height: 20px;
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl-attrib summary {
+  background: transparent;
+  color: var(--ink-3);
+  padding: 2px 8px;
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl-attrib summary::before {
+  filter: invert(1) grayscale(1);
+  opacity: .62;
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl-attrib a {
+  color: var(--ink-2);
+}
+
+[data-app="ride-lens"] .maplibregl-ctrl-attrib a:hover {
+  color: var(--amber);
+}
+
+[data-app="ride-lens"] .profiles {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  border: 1px solid var(--line);
+  border-top: 0;
+  background: var(--abyss);
+}
+
+[data-app="ride-lens"] .map-profiles {
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  border-left: 1px solid var(--line);
+  background: var(--abyss);
+  min-width: 0;
+}
+
+[data-app="ride-lens"] .profile {
+  padding: 16px;
+  border-left: 1px solid var(--line);
+}
+
+[data-app="ride-lens"] .profile:first-child {
+  border-left: 0;
+}
+
+[data-app="ride-lens"] .map-profiles .profile {
+  border-left: 0;
+  border-top: 1px solid var(--line);
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+[data-app="ride-lens"] .map-profiles .profile:first-child {
+  border-top: 0;
+}
+
+[data-app="ride-lens"] .profile .pl {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+[data-app="ride-lens"] .profile .pl span {
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .profile .pl b {
+  font-family: "Overpass Mono", monospace;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+[data-app="ride-lens"] .profile .paxis {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+  margin-top: 6px;
+}
+
+[data-app="ride-lens"] .profile svg {
+  width: 100%;
+  height: auto;
+  margin-top: 10px;
+  display: block;
+}
+
+[data-app="ride-lens"] .map-profiles .profile svg {
+  flex: 1;
+  min-height: 0;
+  height: 100%;
+}
+
+[data-app="ride-lens"] .breakdown {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+  margin-top: 14px;
+  border: 1px solid var(--line);
+  background: var(--abyss);
+}
+
+[data-app="ride-lens"] .breakdown.metrics {
+  grid-template-columns: repeat(4, 1fr);
+  margin-top: 4px;
+}
+
+[data-app="ride-lens"] .breakdown .b-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--line-2);
+}
+
+[data-app="ride-lens"] .breakdown.metrics .b-row {
+  border-right: 1px solid var(--line-2);
+}
+
+[data-app="ride-lens"] .breakdown.metrics .b-row:nth-child(4n) {
+  border-right: 0;
+}
+
+[data-app="ride-lens"] .breakdown.metrics .b-row:nth-last-child(-n + 4) {
+  border-bottom: 0;
+}
+
+[data-app="ride-lens"] .breakdown .b-row .k {
+  font-family: "Overpass Mono", monospace;
+  font-size: 11px;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .breakdown .b-row .v {
+  font-family: "Overpass Mono", monospace;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+[data-app="ride-lens"] .snapshot {
+  display: grid;
+  grid-template-columns: minmax(240px, .68fr) 1fr;
+  gap: 14px;
+  align-items: stretch;
+}
+
+[data-app="ride-lens"] .snapshot .gantry {
+  margin-top: 0;
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 14px 32px rgb(0 0 0 / .34);
+  border-width: 3px;
+}
+
+[data-app="ride-lens"] .snapshot .gantry-row {
+  flex: 1;
+  padding: 11px 14px;
+  gap: 12px;
+}
+
+[data-app="ride-lens"] .snapshot .gantry-dest {
+  gap: 8px;
+  font-size: 13px;
+  letter-spacing: .06em;
+}
+
+[data-app="ride-lens"] .snapshot .gantry-val {
+  font-size: 18px;
+}
+
+[data-app="ride-lens"] .snapshot .gantry-val small {
+  font-size: .52em;
+  margin-left: 4px;
+}
+
+[data-app="ride-lens"] .snapshot .bests {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0;
+  border: 1px solid var(--line);
+  background: var(--abyss);
+}
+
+[data-app="ride-lens"] .snapshot .bests .sign {
+  border: 0;
+  background: transparent;
+  border-right: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+}
+
+[data-app="ride-lens"] .snapshot .bests .sign:nth-child(2n) {
+  border-right: 0;
+}
+
+[data-app="ride-lens"] .snapshot .bests .sign:nth-last-child(-n + 2) {
+  border-bottom: 0;
+}
+
+[data-app="ride-lens"] .delta-panel {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--line);
+  background: var(--abyss);
+}
+
+[data-app="ride-lens"] .delta-panel .drow {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  padding: 14px 16px;
+  border-right: 1px solid var(--line-2);
+  border-bottom: 1px solid var(--line-2);
+}
+
+[data-app="ride-lens"] .delta-panel .drow:nth-child(3n) {
+  border-right: 0;
+}
+
+[data-app="ride-lens"] .delta-panel .drow:nth-last-child(-n + 3) {
+  border-bottom: 0;
+}
+
+[data-app="ride-lens"] .delta-panel .drow .k {
+  font-family: "Overpass Mono", monospace;
+  font-size: 11px;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .delta-panel .drow .v {
+  font-family: "Overpass Mono", monospace;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+[data-app="ride-lens"] .delta-panel .drow .v.up {
+  color: var(--amber);
+}
+
+[data-app="ride-lens"] .months {
+  display: grid;
+  grid-template-columns: repeat(12, 1fr);
+  gap: 10px;
+}
+
+[data-app="ride-lens"] .months-inset {
+  padding: 8px;
+}
+
+[data-app="ride-lens"] .month {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+
+[data-app="ride-lens"] .month .track {
+  height: 120px;
+  background: var(--night-2);
+  border: 1px solid var(--line-2);
+  display: flex;
+  align-items: flex-end;
+  padding: 5px;
+}
+
+[data-app="ride-lens"] .month .bar {
+  width: 100%;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--amber) 0 9px,
+    var(--night) 9px 11px
+  );
+}
+
+[data-app="ride-lens"] .month .ml {
+  display: flex;
+  justify-content: space-between;
+  font-family: "Overpass Mono", monospace;
+  font-size: 10px;
+  color: var(--ink-3);
+}
+
+[data-app="ride-lens"] .month .ml b {
+  color: var(--ink);
+}
+
+[data-app="ride-lens"] .empty {
+  margin-top: 26px;
+  border: 1px solid var(--line);
+  background: var(--abyss);
+  padding: 64px 24px;
+  text-align: center;
+}
+
+[data-app="ride-lens"] .empty .glyph {
+  font-family: "Overpass", sans-serif;
+  font-weight: 900;
+  font-size: 40px;
+  color: var(--amber);
+  letter-spacing: .04em;
+}
+
+[data-app="ride-lens"] .empty .t {
+  margin-top: 14px;
+  font-family: "Overpass", sans-serif;
+  font-weight: 700;
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: .02em;
+}
+
+[data-app="ride-lens"] .empty .d {
+  margin-top: 8px;
+  font-family: "Overpass Mono", monospace;
+  font-size: 13px;
+  color: var(--ink-3);
+  max-width: 36ch;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+[data-app="ride-lens"] .empty .rh-btn {
+  margin-top: 20px;
+}
+
+[data-app="ride-lens"] footer {
+  margin-top: 48px;
+  padding-top: 18px;
+  border-top: 1px solid var(--line-2);
+  display: flex;
+  justify-content: space-between;
+  font-family: "Overpass Mono", monospace;
+  font-size: 11px;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+}
+
+@media (max-width: 900px) {
+  [data-app="ride-lens"] .signs {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  [data-app="ride-lens"] .ride-overview-grid {
+    grid-template-columns: 1fr;
+  }
+
+  [data-app="ride-lens"] .map-grid {
+    grid-template-columns: 1fr;
+  }
+
+  [data-app="ride-lens"] .map-profiles {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+    grid-template-rows: none;
+  }
+
+  [data-app="ride-lens"] .profiles {
+    grid-template-columns: 1fr;
+  }
+
+  [data-app="ride-lens"] .profile {
+    border-left: 0;
+    border-top: 1px solid var(--line);
+  }
+
+  [data-app="ride-lens"] .profile:first-child {
+    border-top: 0;
+  }
+
+  [data-app="ride-lens"] .breakdown {
+    grid-template-columns: 1fr;
+  }
+
+  [data-app="ride-lens"] .breakdown.metrics {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  [data-app="ride-lens"] .breakdown.metrics .b-row:nth-child(4n) {
+    border-right: 1px solid var(--line-2);
+  }
+
+  [data-app="ride-lens"] .breakdown.metrics .b-row:nth-child(2n) {
+    border-right: 0;
+  }
+
+  [data-app="ride-lens"] .breakdown.metrics .b-row:nth-last-child(-n + 4) {
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  [data-app="ride-lens"] .breakdown.metrics .b-row:nth-last-child(-n + 2) {
+    border-bottom: 0;
+  }
+
+  [data-app="ride-lens"] .snapshot {
+    grid-template-columns: 1fr;
+  }
+
+  [data-app="ride-lens"] .delta-panel {
+    grid-template-columns: 1fr;
+  }
+
+  [data-app="ride-lens"] .delta-panel .drow {
+    border-right: 0;
+  }
+
+  [data-app="ride-lens"] .delta-panel .drow:nth-last-child(-n + 3) {
+    border-bottom: 1px solid var(--line-2);
+  }
+
+  [data-app="ride-lens"] .delta-panel .drow:last-child {
+    border-bottom: 0;
+  }
+
+  [data-app="ride-lens"] .months {
+    grid-template-columns: repeat(6, 1fr);
+  }
+
+  [data-app="ride-lens"] .map-shell,
+  [data-app="ride-lens"] .map-shell.all-rides {
+    height: auto;
+    min-height: 360px;
+    aspect-ratio: .82;
+  }
+
+  [data-app="ride-lens"] .map-toolbar {
+    right: 12px;
+    max-width: none;
+  }
+
+  [data-app="ride-lens"] .map-tool {
+    height: 30px;
+    padding: 0 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-app="ride-lens"] * {
+    animation: none !important;
+    transition: none !important;
+  }
+}
