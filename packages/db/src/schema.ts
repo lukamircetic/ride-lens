@@ -148,6 +148,99 @@ export const weather_observations = sqliteTable(
   ],
 );
 
+export const segments = sqliteTable(
+  "segments",
+  {
+    id: text().primaryKey(),
+    source_activity_id: text()
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    name: text().notNull(),
+    source: text({ enum: ["manual"] })
+      .notNull()
+      .default("manual"),
+    sport: text(),
+    start_record_index: integer().notNull(),
+    end_record_index: integer().notNull(),
+    start_distance_meters: real(),
+    end_distance_meters: real(),
+    start_time: integer(),
+    end_time: integer(),
+    start_latitude: real(),
+    start_longitude: real(),
+    end_latitude: real(),
+    end_longitude: real(),
+    distance_meters: real(),
+    elapsed_seconds: real(),
+    moving_seconds: real(),
+    average_speed_meters_per_second: real(),
+    max_speed_meters_per_second: real(),
+    average_heart_rate_bpm: real(),
+    max_heart_rate_bpm: integer(),
+    elevation_gain_meters: real(),
+    elevation_loss_meters: real(),
+    vam_meters_per_hour: real(),
+    average_cadence_rpm: real(),
+    average_power_watts: real(),
+    normalized_power_watts: real(),
+    geometry_json: text().notNull(),
+    created_at: integer().notNull(),
+    updated_at: integer().notNull(),
+  },
+  (table) => [
+    index("segments_source_activity_idx").on(table.source_activity_id),
+    index("segments_sport_idx").on(table.sport),
+  ],
+);
+
+export const segment_efforts = sqliteTable(
+  "segment_efforts",
+  {
+    id: text().primaryKey(),
+    segment_id: text()
+      .notNull()
+      .references(() => segments.id, { onDelete: "cascade" }),
+    activity_id: text()
+      .notNull()
+      .references(() => activities.id, { onDelete: "cascade" }),
+    attempt_index: integer().notNull(),
+    source: text({ enum: ["source", "matched"] }).notNull(),
+    start_record_index: integer().notNull(),
+    end_record_index: integer().notNull(),
+    start_distance_meters: real(),
+    end_distance_meters: real(),
+    start_time: integer(),
+    end_time: integer(),
+    distance_meters: real(),
+    elapsed_seconds: real(),
+    moving_seconds: real(),
+    average_speed_meters_per_second: real(),
+    max_speed_meters_per_second: real(),
+    average_heart_rate_bpm: real(),
+    max_heart_rate_bpm: integer(),
+    elevation_gain_meters: real(),
+    elevation_loss_meters: real(),
+    vam_meters_per_hour: real(),
+    average_cadence_rpm: real(),
+    average_power_watts: real(),
+    normalized_power_watts: real(),
+    coverage_ratio: real().notNull(),
+    confidence: real().notNull(),
+    average_deviation_meters: real(),
+    max_deviation_meters: real(),
+    computed_at: integer().notNull(),
+  },
+  (table) => [
+    uniqueIndex("segment_efforts_segment_activity_attempt_idx").on(
+      table.segment_id,
+      table.activity_id,
+      table.attempt_index,
+    ),
+    index("segment_efforts_activity_idx").on(table.activity_id),
+    index("segment_efforts_segment_elapsed_idx").on(table.segment_id, table.elapsed_seconds),
+  ],
+);
+
 export const activity_weather_summaries = sqliteTable("activity_weather_summaries", {
   activity_id: text()
     .primaryKey()
@@ -198,6 +291,8 @@ export const activities_relations = relations(activities, ({ one, many }) => ({
   }),
   records: many(activity_records),
   laps: many(activity_laps),
+  source_segments: many(segments),
+  segment_efforts: many(segment_efforts),
   weather_observations: many(weather_observations),
   weather_summary: one(activity_weather_summaries, {
     fields: [activities.id],
@@ -215,6 +310,25 @@ export const activity_records_relations = relations(activity_records, ({ one }) 
 export const activity_laps_relations = relations(activity_laps, ({ one }) => ({
   activity: one(activities, {
     fields: [activity_laps.activity_id],
+    references: [activities.id],
+  }),
+}));
+
+export const segments_relations = relations(segments, ({ one, many }) => ({
+  source_activity: one(activities, {
+    fields: [segments.source_activity_id],
+    references: [activities.id],
+  }),
+  efforts: many(segment_efforts),
+}));
+
+export const segment_efforts_relations = relations(segment_efforts, ({ one }) => ({
+  segment: one(segments, {
+    fields: [segment_efforts.segment_id],
+    references: [segments.id],
+  }),
+  activity: one(activities, {
+    fields: [segment_efforts.activity_id],
     references: [activities.id],
   }),
 }));
@@ -238,5 +352,7 @@ export const activity_weather_summaries_relations = relations(
 
 export type ActivityRow = typeof activities.$inferSelect;
 export type FitFileRow = typeof fit_files.$inferSelect;
+export type SegmentRow = typeof segments.$inferSelect;
+export type SegmentEffortRow = typeof segment_efforts.$inferSelect;
 export type WeatherObservationRow = typeof weather_observations.$inferSelect;
 export type ActivityWeatherSummaryRow = typeof activity_weather_summaries.$inferSelect;

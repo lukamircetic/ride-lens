@@ -2,13 +2,22 @@ import type {
   ActivityDetailResponse,
   ActivityListResponse,
   ActivityRoutesResponse,
+  ActivitySegmentsResponse,
 } from "@ride-lens/api";
 import { cn } from "@ride-lens/ui/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
 import { FileUpIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { getActivity, importFitFile, listActivities, listActivityRoutes } from "./api";
+import {
+  createSegment,
+  getActivity,
+  importFitFile,
+  listActivities,
+  listActivityRoutes,
+  listActivitySegments,
+  updateSegment,
+} from "./api";
 import { EmptyState } from "./components/empty-state";
 import { RideDetail } from "./components/ride-detail";
 import { RideLog } from "./components/ride-log";
@@ -37,6 +46,8 @@ const sectionSubClassName = "font-ride text-[11px] text-ride-ink-dim";
 const uploadButtonClassName =
   "inline-flex cursor-pointer items-center gap-2 border border-ride-line bg-ride-night-2 px-3.5 py-[9px] font-ride text-xs font-bold uppercase text-ride-ink transition-colors hover:border-ride-amber hover:text-ride-amber disabled:cursor-default disabled:opacity-50 [&_svg]:size-[15px]";
 
+const EMPTY_ACTIVITY_SEGMENTS: ActivitySegmentsResponse = { segments: [] };
+
 export function RideDashboard({
   initialActivityId = null,
 }: {
@@ -62,6 +73,13 @@ export function RideDashboard({
     error: null,
     loading: false,
   });
+  const [activitySegmentsState, setActivitySegmentsState] = useState<
+    LoadState<ActivitySegmentsResponse>
+  >({
+    data: EMPTY_ACTIVITY_SEGMENTS,
+    error: null,
+    loading: false,
+  });
   const [hoveredActivityId, setHoveredActivityId] = useState<string | null>(null);
   const [rideLogPage, setRideLogPage] = useState(0);
   const [uploading, setUploading] = useState(false);
@@ -70,6 +88,8 @@ export function RideDashboard({
     readonly total: number;
   } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [creatingSegment, setCreatingSegment] = useState(false);
+  const [segmentMutationError, setSegmentMutationError] = useState<string | null>(null);
 
   const activities = activitiesState.data?.activities ?? [];
   const activityRoutes = activityRoutesState.data?.routes ?? [];
@@ -155,6 +175,93 @@ export function RideDashboard({
       cancelled = true;
     };
   }, [selectedActivityId]);
+
+  useEffect(() => {
+    if (selectedActivityId === null) {
+      setActivitySegmentsState({ data: EMPTY_ACTIVITY_SEGMENTS, error: null, loading: false });
+      return;
+    }
+
+    let cancelled = false;
+    setActivitySegmentsState((current) => ({ ...current, error: null, loading: true }));
+    listActivitySegments(selectedActivityId)
+      .then((segments) => {
+        if (!cancelled) {
+          setActivitySegmentsState({ data: segments, error: null, loading: false });
+        }
+      })
+      .catch((error: unknown) => {
+        if (!cancelled) {
+          setActivitySegmentsState({
+            data: EMPTY_ACTIVITY_SEGMENTS,
+            error: errorToMessage(error, "Could not load ride segments."),
+            loading: false,
+          });
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedActivityId]);
+
+  const handleCreateSegment = async ({
+    name,
+    startRecordIndex,
+    endRecordIndex,
+  }: {
+    readonly name: string;
+    readonly startRecordIndex: number;
+    readonly endRecordIndex: number;
+  }) => {
+    if (selectedActivityId === null) return;
+
+    setCreatingSegment(true);
+    setSegmentMutationError(null);
+    try {
+      await createSegment({
+        activityId: selectedActivityId,
+        name,
+        startRecordIndex,
+        endRecordIndex,
+      });
+      const segments = await listActivitySegments(selectedActivityId);
+      setActivitySegmentsState({ data: segments, error: null, loading: false });
+    } catch (error) {
+      setSegmentMutationError(errorToMessage(error, "Could not save segment."));
+      throw error;
+    } finally {
+      setCreatingSegment(false);
+    }
+  };
+
+  const handleUpdateSegment = async (
+    segmentId: string,
+    {
+      name,
+      startRecordIndex,
+      endRecordIndex,
+    }: {
+      readonly name: string;
+      readonly startRecordIndex: number;
+      readonly endRecordIndex: number;
+    },
+  ) => {
+    if (selectedActivityId === null) return;
+
+    setCreatingSegment(true);
+    setSegmentMutationError(null);
+    try {
+      await updateSegment(segmentId, { name, startRecordIndex, endRecordIndex });
+      const segments = await listActivitySegments(selectedActivityId);
+      setActivitySegmentsState({ data: segments, error: null, loading: false });
+    } catch (error) {
+      setSegmentMutationError(errorToMessage(error, "Could not update segment."));
+      throw error;
+    } finally {
+      setCreatingSegment(false);
+    }
+  };
 
   const handleUpload = async (files: FileList | null | undefined) => {
     const uploadFiles = files ? Array.from(files) : [];
@@ -257,6 +364,9 @@ export function RideDashboard({
         {activityRoutesState.error ? (
           <div className={statusErrorClassName}>{activityRoutesState.error}</div>
         ) : null}
+        {activitySegmentsState.error ? (
+          <div className={statusErrorClassName}>{activitySegmentsState.error}</div>
+        ) : null}
 
         {activities.length === 0 && !activitiesState.loading ? (
           <EmptyState onUpload={() => fileInputRef.current?.click()} />
@@ -308,6 +418,11 @@ export function RideDashboard({
               detail={detailState.data}
               loading={detailState.loading}
               error={detailState.error}
+              segments={activitySegmentsState.data?.segments ?? []}
+              creatingSegment={creatingSegment}
+              segmentError={segmentMutationError}
+              onCreateSegment={handleCreateSegment}
+              onUpdateSegment={handleUpdateSegment}
             />
           </section>
         ) : null}

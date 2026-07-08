@@ -1,11 +1,14 @@
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 
-import type { ActivityRoute, ActivityRoutePoint, RouteMetric } from "../types";
+import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../types";
 import {
   allRideRoutesFeatureCollection,
+  draftSegmentFeatureCollection,
   emptyFeatureCollection,
   routeEndpointsFeatureCollection,
   routeSegmentsFeatureCollection,
+  segmentHandlesFeatureCollection,
+  segmentRangesFeatureCollection,
 } from "./geojson";
 import type { GeoJsonData, MapLayerSpecification, MapSourceSpecification } from "./map-types";
 
@@ -77,6 +80,82 @@ export function updateSelectedRouteData(
     routeSegmentsFeatureCollection(points, metric),
   );
   setGeoJsonSourceData(map, "selected-route-points", routeEndpointsFeatureCollection(points));
+}
+
+export function addSegmentOverlayLayers(map: MapLibreMap) {
+  if (map.getSource("ride-segment-ranges")) return;
+
+  map.addSource("ride-segment-ranges", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+  map.addSource("draft-segment-range", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+  map.addSource("segment-handles", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+
+  map.addLayer({
+    id: "ride-segment-ranges",
+    type: "line",
+    source: "ride-segment-ranges",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": ["case", ["boolean", ["get", "active"], false], "#f2efe6", "#78b7c8"],
+      "line-opacity": ["case", ["boolean", ["get", "active"], false], 1, 0.82],
+      "line-width": ["case", ["boolean", ["get", "active"], false], 7, 4],
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "draft-segment-range",
+    type: "line",
+    source: "draft-segment-range",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#f2efe6",
+      "line-opacity": 0.96,
+      "line-width": 7.5,
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "segment-handles",
+    type: "circle",
+    source: "segment-handles",
+    paint: {
+      "circle-color": ["case", ["==", ["get", "kind"], "start"], "#f2efe6", "#ffc72c"],
+      "circle-radius": 7,
+      "circle-stroke-color": "#111820",
+      "circle-stroke-width": 2.5,
+    },
+  } as MapLayerSpecification);
+}
+
+export function updateSegmentOverlayData(
+  map: MapLibreMap,
+  points: ReadonlyArray<ActivityRoutePoint>,
+  segments: ReadonlyArray<ActivitySegment>,
+  activeSegmentId: string | null,
+  draftStartRecordIndex: number | null,
+  draftEndRecordIndex: number | null,
+) {
+  setGeoJsonSourceData(
+    map,
+    "ride-segment-ranges",
+    segmentRangesFeatureCollection(points, segments, activeSegmentId),
+  );
+  setGeoJsonSourceData(
+    map,
+    "draft-segment-range",
+    draftSegmentFeatureCollection(points, draftStartRecordIndex, draftEndRecordIndex),
+  );
+  setGeoJsonSourceData(
+    map,
+    "segment-handles",
+    segmentHandlesFeatureCollection(points, draftStartRecordIndex, draftEndRecordIndex),
+  );
 }
 
 export function addAllRideRouteLayers(map: MapLibreMap) {

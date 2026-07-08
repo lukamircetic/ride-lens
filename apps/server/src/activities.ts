@@ -19,6 +19,7 @@ import {
   type ActivityNotFoundError,
   type ActivityQueryError,
 } from "./activity-queries";
+import { matchExistingSegmentsForActivity } from "./segments";
 import { ensureActivityWeather, type WeatherConfig } from "./weather";
 
 export class ActivityInvalidFileTypeError extends Data.TaggedError("ActivityInvalidFileTypeError")<{
@@ -60,6 +61,9 @@ export class Activities extends Context.Service<
             const imported = yield* importFitActivity(database, options);
             yield* ensureActivityWeather(database, imported.importId, weatherConfig).pipe(
               Effect.catchTag("WeatherContextError", () => Effect.succeed(null)),
+            );
+            yield* matchExistingSegmentsForActivity(database, imported.importId).pipe(
+              Effect.catchTag("SegmentQueryError", () => Effect.succeed(undefined)),
             );
 
             return imported;

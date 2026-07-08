@@ -11,7 +11,10 @@ import type {
   ActivityDetailResponse,
   ActivityListResponse,
   ActivityRoutesResponse,
+  ActivitySegmentsResponse,
   FitImportResponse,
+  SegmentDetailResponse,
+  SegmentListResponse,
 } from "@ride-lens/api";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -54,13 +57,23 @@ const getMesgNum = (name: string): number => {
 
 const degreesToSemicircles = (degrees: number): number => Math.round(degrees * (2 ** 31 / 180));
 
-const makeRideFitFile = (): Uint8Array => {
+const addSeconds = (date: Date, seconds: number): Date => new Date(date.getTime() + seconds * 1000);
+
+const makeRideFitFile = (
+  options: {
+    readonly startTime?: Date;
+    readonly latitudeOffset?: number;
+    readonly longitudeOffset?: number;
+  } = {},
+): Uint8Array => {
   const encoder = new Encoder();
-  const startTime = new Date("2026-01-15T13:00:00.000Z");
-  const startPositionLat = degreesToSemicircles(43.6532);
-  const startPositionLong = degreesToSemicircles(-79.3832);
-  const endPositionLat = degreesToSemicircles(43.6629);
-  const endPositionLong = degreesToSemicircles(-79.3957);
+  const startTime = options.startTime ?? new Date("2026-01-15T13:00:00.000Z");
+  const latitudeOffset = options.latitudeOffset ?? 0;
+  const longitudeOffset = options.longitudeOffset ?? 0;
+  const startPositionLat = degreesToSemicircles(43.6532 + latitudeOffset);
+  const startPositionLong = degreesToSemicircles(-79.3832 + longitudeOffset);
+  const endPositionLat = degreesToSemicircles(43.6629 + latitudeOffset);
+  const endPositionLong = degreesToSemicircles(-79.3957 + longitudeOffset);
 
   const fileIdMesg = {
     mesgNum: getMesgNum("FILE_ID"),
@@ -94,7 +107,7 @@ const makeRideFitFile = (): Uint8Array => {
 
   const secondRecordMesg = {
     mesgNum: getMesgNum("RECORD"),
-    timestamp: new Date("2026-01-15T13:01:00.000Z"),
+    timestamp: addSeconds(startTime, 60),
     positionLat: endPositionLat,
     positionLong: endPositionLong,
     distance: 420,
@@ -110,7 +123,7 @@ const makeRideFitFile = (): Uint8Array => {
 
   const lapMesg = {
     mesgNum: getMesgNum("LAP"),
-    timestamp: new Date("2026-01-15T14:05:00.000Z"),
+    timestamp: addSeconds(startTime, 3900),
     startTime,
     event: "lap",
     eventType: "stop",
@@ -134,7 +147,7 @@ const makeRideFitFile = (): Uint8Array => {
 
   const sessionMesg = {
     mesgNum: getMesgNum("SESSION"),
-    timestamp: new Date("2026-01-15T14:00:00.000Z"),
+    timestamp: addSeconds(startTime, 3600),
     startTime,
     event: "session",
     eventType: "stop",
@@ -336,6 +349,167 @@ describe("Ride Lens API", () => {
               speedMetersPerSecond: 7.1,
             }),
           ],
+        }),
+      ]),
+    );
+  });
+
+  it("creates a manual segment and matches a similar ride", async () => {
+    const firstForm = new FormData();
+    firstForm.append("file", new Blob([makeRideFitFile()]), "segment-source.fit");
+    const firstImportResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        body: firstForm,
+      }),
+    );
+    const firstImported = (await firstImportResponse.json()) as FitImportResponse;
+
+    const secondForm = new FormData();
+    secondForm.append(
+      "file",
+      new Blob([
+        makeRideFitFile({
+          startTime: new Date("2026-01-15T13:10:00.000Z"),
+          latitudeOffset: 0.00002,
+          longitudeOffset: 0.00002,
+        }),
+      ]),
+      "segment-match.fit",
+    );
+    const secondImportResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        body: secondForm,
+      }),
+    );
+    const secondImported = (await secondImportResponse.json()) as FitImportResponse;
+
+    const createResponse = await handler(
+      new Request("http://ride-lens.test/api/segments", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          activityId: firstImported.importId,
+          name: "Downtown test segment",
+          startRecordIndex: 0,
+          endRecordIndex: 1,
+        }),
+      }),
+    );
+
+    expect(createResponse.status).toBe(200);
+    const createBody = (await createResponse.json()) as SegmentDetailResponse;
+    expect(createBody.segment).toMatchObject({
+      name: "Downtown test segment",
+      sourceActivityId: firstImported.importId,
+      startRecordIndex: 0,
+      endRecordIndex: 1,
+      stats: expect.objectContaining({
+        distanceMeters: 420,
+        elapsedSeconds: 60,
+        averageHeartRateBpm: 138.5,
+        elevationGainMeters: 4,
+      }),
+    });
+    expect(createBody.efforts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          activityId: firstImported.importId,
+          source: "source",
+          attemptIndex: 1,
+        }),
+        expect.objectContaining({
+          activityId: secondImported.importId,
+          source: "matched",
+          attemptIndex: 1,
+          coverageRatio: 1,
+        }),
+      ]),
+    );
+
+    const updateResponse = await handler(
+      new Request(`http://ride-lens.test/api/segments/${createBody.segment.id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          name: "Downtown edited segment",
+          startRecordIndex: 1,
+          endRecordIndex: 0,
+        }),
+      }),
+    );
+    expect(updateResponse.status).toBe(200);
+    const updateBody = (await updateResponse.json()) as SegmentDetailResponse;
+    expect(updateBody.segment).toMatchObject({
+      id: createBody.segment.id,
+      name: "Downtown edited segment",
+      startRecordIndex: 0,
+      endRecordIndex: 1,
+    });
+    expect(updateBody.efforts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ activityId: firstImported.importId, source: "source" }),
+        expect.objectContaining({ activityId: secondImported.importId, source: "matched" }),
+      ]),
+    );
+
+    const listResponse = await handler(new Request("http://ride-lens.test/api/segments"));
+    expect(listResponse.status).toBe(200);
+    const listBody = (await listResponse.json()) as SegmentListResponse;
+    expect(listBody.segments.map(({ segment }) => segment.id)).toContain(createBody.segment.id);
+    expect(listBody.segments.map(({ segment }) => segment.name)).toContain(
+      "Downtown edited segment",
+    );
+
+    const activitySegmentsResponse = await handler(
+      new Request(`http://ride-lens.test/api/activities/${secondImported.importId}/segments`),
+    );
+    expect(activitySegmentsResponse.status).toBe(200);
+    const activitySegmentsBody =
+      (await activitySegmentsResponse.json()) as ActivitySegmentsResponse;
+    expect(activitySegmentsBody.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          segment: expect.objectContaining({ id: createBody.segment.id }),
+          effort: expect.objectContaining({ activityId: secondImported.importId }),
+        }),
+      ]),
+    );
+
+    const thirdForm = new FormData();
+    thirdForm.append(
+      "file",
+      new Blob([
+        makeRideFitFile({
+          startTime: new Date("2026-01-15T13:20:00.000Z"),
+          latitudeOffset: 0.00003,
+          longitudeOffset: 0.00003,
+        }),
+      ]),
+      "segment-later-match.fit",
+    );
+    const thirdImportResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        body: thirdForm,
+      }),
+    );
+    const thirdImported = (await thirdImportResponse.json()) as FitImportResponse;
+    const laterActivitySegmentsResponse = await handler(
+      new Request(`http://ride-lens.test/api/activities/${thirdImported.importId}/segments`),
+    );
+    expect(laterActivitySegmentsResponse.status).toBe(200);
+    const laterActivitySegmentsBody =
+      (await laterActivitySegmentsResponse.json()) as ActivitySegmentsResponse;
+    expect(laterActivitySegmentsBody.segments).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          segment: expect.objectContaining({ id: createBody.segment.id }),
+          effort: expect.objectContaining({
+            activityId: thirdImported.importId,
+            source: "matched",
+          }),
         }),
       ]),
     );

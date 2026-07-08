@@ -1,5 +1,5 @@
 import { formatRideTitle } from "../formatters";
-import type { ActivityRoute, ActivityRoutePoint, RouteMetric } from "../types";
+import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../types";
 import { getMetricColor, getMetricRange, getMetricValue } from "./metrics";
 
 export function routeSegmentsFeatureCollection(
@@ -61,6 +61,115 @@ export function routeEndpointsFeatureCollection(points: ReadonlyArray<ActivityRo
     type: "FeatureCollection",
     features,
   };
+}
+
+export function segmentRangesFeatureCollection(
+  points: ReadonlyArray<ActivityRoutePoint>,
+  segments: ReadonlyArray<ActivitySegment>,
+  activeEffortId: string | null,
+) {
+  return {
+    type: "FeatureCollection",
+    features: segments.flatMap(({ effort, segment }) => {
+      const coordinates = routeCoordinatesForRange(
+        points,
+        effort.startRecordIndex,
+        effort.endRecordIndex,
+      );
+      if (coordinates.length < 2) return [];
+
+      return [
+        {
+          type: "Feature",
+          properties: {
+            segmentId: segment.id,
+            effortId: effort.id,
+            name: segment.name,
+            active: effort.id === activeEffortId,
+          },
+          geometry: {
+            type: "LineString",
+            coordinates,
+          },
+        },
+      ];
+    }),
+  };
+}
+
+export function draftSegmentFeatureCollection(
+  points: ReadonlyArray<ActivityRoutePoint>,
+  startRecordIndex: number | null,
+  endRecordIndex: number | null,
+) {
+  if (startRecordIndex === null || endRecordIndex === null) return emptyFeatureCollection();
+
+  const coordinates = routeCoordinatesForRange(points, startRecordIndex, endRecordIndex);
+  if (coordinates.length < 2) return emptyFeatureCollection();
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates,
+        },
+      },
+    ],
+  };
+}
+
+export function segmentHandlesFeatureCollection(
+  points: ReadonlyArray<ActivityRoutePoint>,
+  startRecordIndex: number | null,
+  endRecordIndex: number | null,
+) {
+  const start = findRoutePoint(points, startRecordIndex);
+  const end = findRoutePoint(points, endRecordIndex);
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      start
+        ? {
+            type: "Feature",
+            properties: { kind: "start" },
+            geometry: { type: "Point", coordinates: [start.longitude, start.latitude] },
+          }
+        : null,
+      end
+        ? {
+            type: "Feature",
+            properties: { kind: "end" },
+            geometry: { type: "Point", coordinates: [end.longitude, end.latitude] },
+          }
+        : null,
+    ].filter(Boolean),
+  };
+}
+
+function routeCoordinatesForRange(
+  points: ReadonlyArray<ActivityRoutePoint>,
+  startRecordIndex: number,
+  endRecordIndex: number,
+): Array<[number, number]> {
+  const start = Math.min(startRecordIndex, endRecordIndex);
+  const end = Math.max(startRecordIndex, endRecordIndex);
+
+  return points
+    .filter((point) => point.recordIndex >= start && point.recordIndex <= end)
+    .map((point) => [point.longitude, point.latitude]);
+}
+
+function findRoutePoint(
+  points: ReadonlyArray<ActivityRoutePoint>,
+  recordIndex: number | null,
+): ActivityRoutePoint | null {
+  if (recordIndex === null) return null;
+  return points.find((point) => point.recordIndex === recordIndex) ?? null;
 }
 
 export function allRideRoutesFeatureCollection(

@@ -16,12 +16,13 @@ Already implemented:
 - MapLibre selected-ride map with metric-colored route overlays.
 - All-rides map with route highlighting and click-to-select behavior.
 - Weather ingestion, weather observation caching, and ride-level wind context summaries.
+- Manual segment schema, selected-ride map create/edit mode, segment stat computation, and same-direction effort matching.
 
 Current roadmap position:
 
 - The map foundation is in place.
 - Weather is usable earlier than originally planned, but should still be treated as ride-level context until segment-level matching exists.
-- The next major product push should be manual segments: selection UI, segment persistence, and per-segment stats.
+- Manual segment creation/editing is in place; the next major product push should be segment management and comparison across saved efforts.
 - Strava/community segment import should be researched and isolated behind a provider boundary before any implementation. The local Ride Lens segment model should not depend on Strava data or Strava retention rights.
 
 ## Map Platform Decision
@@ -160,10 +161,15 @@ Manual segment V1 data needs:
 UI principles:
 
 - Segment selection should happen on the map, not in a form.
+- Creation and editing should live in the selected ride map, exposed as a compact `Create segment` control near the speed, heart-rate, and elevation metric controls.
+- Entering create/edit mode should visibly change the map state, for example with a stronger border treatment and endpoint handles, so it is clear clicks are selecting segment bounds.
 - The selected segment should be visible simultaneously on the map and the profile charts.
-- Endpoint adjustment should support clicking again, dragging handles, or choosing "clear" without losing the ride view.
+- Endpoint adjustment currently supports clicking two points, clicking again to replace the nearest endpoint, or choosing "clear" without losing the ride view. Drag handles are a later refinement.
 - The stats preview should be compact and comparable to ride stat panels.
+- Saving should require a segment name and should show computed stats before commit.
+- The selected ride detail should support toggling saved segments on the map and clicking a segment to inspect its segment-specific stats, including wind, heart rate, speed, elevation, and weather context where available.
 - The saved segment list should live near the selected ride detail first, then graduate into a dedicated segments view when cross-ride matching exists.
+- Segment management and comparison should live in a separate Segments tab/page after V1, rather than crowding the default ride dashboard.
 
 Open design questions:
 
@@ -281,20 +287,21 @@ Completed or materially started:
 3. Replace the SVG route preview with the selected-ride map.
 4. Add all-rides map mode.
 5. Add weather ingestion, caching, and ride-level wind summaries.
+6. Add manual segment schema and migrations.
+7. Add backend segment stat computation for selected activity record ranges.
+8. Add selected-ride map create/edit mode and saved segment overlays.
+9. Save named manual segments in SQLite.
+10. Match saved segments against other rides and persist `segment_efforts`.
 
 Recommended next implementation order:
 
-1. Add manual segment schema and migrations.
-2. Add backend segment stat computation for a selected activity record range.
-3. Add draft segment selection UI on the selected ride map.
-4. Add profile-chart highlighting for the selected segment range.
-5. Save named manual segments in SQLite.
-6. Show saved segments on the selected ride detail.
-7. Add segment matching against other rides and persist `segment_efforts`.
-8. Add segment comparison charts and weather-context filters.
-9. Add all-rides map filters.
-10. Add 2D ride replay.
-11. Prototype 3D terrain replay.
+1. Add profile-chart highlighting for the selected segment range.
+2. Build a dedicated Segments tab/page for saved segment management.
+3. Add segment comparison charts and weather-context filters.
+4. Add segment-level weather/wind summaries over matched effort ranges.
+5. Add all-rides map filters.
+6. Add 2D ride replay.
+7. Prototype 3D terrain replay.
 
 ## Data Model Notes
 

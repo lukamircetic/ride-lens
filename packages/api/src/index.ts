@@ -163,6 +163,105 @@ export const ActivityWeatherSummary = Schema.Struct({
   computedAt: Schema.String,
 });
 
+export const SegmentStats = Schema.Struct({
+  distanceMeters: Schema.NullOr(Schema.Number),
+  elapsedSeconds: Schema.NullOr(Schema.Number),
+  movingSeconds: Schema.NullOr(Schema.Number),
+  averageSpeedMetersPerSecond: Schema.NullOr(Schema.Number),
+  maxSpeedMetersPerSecond: Schema.NullOr(Schema.Number),
+  averageHeartRateBpm: Schema.NullOr(Schema.Number),
+  maxHeartRateBpm: Schema.NullOr(Schema.Number),
+  elevationGainMeters: Schema.NullOr(Schema.Number),
+  elevationLossMeters: Schema.NullOr(Schema.Number),
+  vamMetersPerHour: Schema.NullOr(Schema.Number),
+  averageCadenceRpm: Schema.NullOr(Schema.Number),
+  averagePowerWatts: Schema.NullOr(Schema.Number),
+  normalizedPowerWatts: Schema.NullOr(Schema.Number),
+});
+
+export const SegmentGeometryPoint = Schema.Struct({
+  recordIndex: Schema.Number,
+  latitude: Schema.Number,
+  longitude: Schema.Number,
+  distanceMeters: Schema.NullOr(Schema.Number),
+});
+
+export const Segment = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  source: Schema.Literal("manual"),
+  sport: Schema.NullOr(Schema.String),
+  sourceActivityId: Schema.String,
+  startRecordIndex: Schema.Number,
+  endRecordIndex: Schema.Number,
+  startDistanceMeters: Schema.NullOr(Schema.Number),
+  endDistanceMeters: Schema.NullOr(Schema.Number),
+  startTime: Schema.NullOr(Schema.String),
+  endTime: Schema.NullOr(Schema.String),
+  startLatitude: Schema.NullOr(Schema.Number),
+  startLongitude: Schema.NullOr(Schema.Number),
+  endLatitude: Schema.NullOr(Schema.Number),
+  endLongitude: Schema.NullOr(Schema.Number),
+  stats: SegmentStats,
+  geometry: Schema.Array(SegmentGeometryPoint),
+  createdAt: Schema.String,
+  updatedAt: Schema.String,
+});
+
+export const SegmentEffort = Schema.Struct({
+  id: Schema.String,
+  segmentId: Schema.String,
+  activityId: Schema.String,
+  activity: ActivityListItem,
+  attemptIndex: Schema.Number,
+  source: Schema.Union([Schema.Literal("source"), Schema.Literal("matched")]),
+  startRecordIndex: Schema.Number,
+  endRecordIndex: Schema.Number,
+  startDistanceMeters: Schema.NullOr(Schema.Number),
+  endDistanceMeters: Schema.NullOr(Schema.Number),
+  startTime: Schema.NullOr(Schema.String),
+  endTime: Schema.NullOr(Schema.String),
+  stats: SegmentStats,
+  coverageRatio: Schema.Number,
+  confidence: Schema.Number,
+  averageDeviationMeters: Schema.NullOr(Schema.Number),
+  maxDeviationMeters: Schema.NullOr(Schema.Number),
+  computedAt: Schema.String,
+});
+
+export const SegmentWithEfforts = Schema.Struct({
+  segment: Segment,
+  efforts: Schema.Array(SegmentEffort),
+});
+
+export const ActivitySegment = Schema.Struct({
+  segment: Segment,
+  effort: SegmentEffort,
+});
+
+export const CreateSegmentPayload = Schema.Struct({
+  activityId: Schema.String,
+  name: Schema.String,
+  startRecordIndex: Schema.Number,
+  endRecordIndex: Schema.Number,
+});
+
+export const UpdateSegmentPayload = Schema.Struct({
+  name: Schema.String,
+  startRecordIndex: Schema.Number,
+  endRecordIndex: Schema.Number,
+});
+
+export const SegmentDetailResponse = SegmentWithEfforts;
+
+export const SegmentListResponse = Schema.Struct({
+  segments: Schema.Array(SegmentWithEfforts),
+});
+
+export const ActivitySegmentsResponse = Schema.Struct({
+  segments: Schema.Array(ActivitySegment),
+});
+
 export const ActivityDetailResponse = Schema.Struct({
   activity: ActivityListItem,
   records: Schema.Array(ActivityRecord),
@@ -173,11 +272,19 @@ export const ActivityDetailResponse = Schema.Struct({
 export type ActivityListResponse = Schema.Schema.Type<typeof ActivityListResponse>;
 export type ActivityRoutesResponse = Schema.Schema.Type<typeof ActivityRoutesResponse>;
 export type ActivityDetailResponse = Schema.Schema.Type<typeof ActivityDetailResponse>;
+export type CreateSegmentPayload = Schema.Schema.Type<typeof CreateSegmentPayload>;
+export type UpdateSegmentPayload = Schema.Schema.Type<typeof UpdateSegmentPayload>;
+export type SegmentDetailResponse = Schema.Schema.Type<typeof SegmentDetailResponse>;
+export type SegmentListResponse = Schema.Schema.Type<typeof SegmentListResponse>;
+export type ActivitySegmentsResponse = Schema.Schema.Type<typeof ActivitySegmentsResponse>;
 
 export const decodeFitImportResponse = Schema.decodeUnknownPromise(FitImportResponse);
 export const decodeActivityListResponse = Schema.decodeUnknownPromise(ActivityListResponse);
 export const decodeActivityRoutesResponse = Schema.decodeUnknownPromise(ActivityRoutesResponse);
 export const decodeActivityDetailResponse = Schema.decodeUnknownPromise(ActivityDetailResponse);
+export const decodeSegmentDetailResponse = Schema.decodeUnknownPromise(SegmentDetailResponse);
+export const decodeSegmentListResponse = Schema.decodeUnknownPromise(SegmentListResponse);
+export const decodeActivitySegmentsResponse = Schema.decodeUnknownPromise(ActivitySegmentsResponse);
 
 export const SystemApi = HttpApiGroup.make("system", { topLevel: true }).add(
   HttpApiEndpoint.get("health", "/health", {
@@ -216,10 +323,49 @@ export const ActivitiesApi = HttpApiGroup.make("activities", { topLevel: true })
     }),
   );
 
+export const SegmentsApi = HttpApiGroup.make("segments", { topLevel: true })
+  .add(
+    HttpApiEndpoint.get("listSegments", "/api/segments", {
+      success: SegmentListResponse,
+      error: HttpApiError.InternalServerErrorNoContent,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.post("createSegment", "/api/segments", {
+      payload: CreateSegmentPayload,
+      success: SegmentDetailResponse,
+      error: [HttpApiError.BadRequestNoContent, HttpApiError.InternalServerErrorNoContent],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.patch("updateSegment", "/api/segments/:id", {
+      params: {
+        id: Schema.String,
+      },
+      payload: UpdateSegmentPayload,
+      success: SegmentDetailResponse,
+      error: [
+        HttpApiError.BadRequestNoContent,
+        HttpApiError.NotFoundNoContent,
+        HttpApiError.InternalServerErrorNoContent,
+      ],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("listActivitySegments", "/api/activities/:id/segments", {
+      params: {
+        id: Schema.String,
+      },
+      success: ActivitySegmentsResponse,
+      error: HttpApiError.InternalServerErrorNoContent,
+    }),
+  );
+
 export class RideLensApi extends HttpApi.make("ride-lens-api")
   .add(SystemApi)
   .add(ActivityImportsApi)
   .add(ActivitiesApi)
+  .add(SegmentsApi)
   .annotateMerge(
     OpenApi.annotations({
       title: "Ride Lens API",

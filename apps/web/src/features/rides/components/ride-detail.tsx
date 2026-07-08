@@ -13,7 +13,7 @@ import {
 } from "../formatters";
 import { ProfilePanel } from "../map/profile-panel";
 import { RouteMap } from "../map/route-map";
-import type { ActivityListItem } from "../types";
+import type { ActivityListItem, ActivitySegment } from "../types";
 import { MetricRow } from "./metric-row";
 import { WeatherContext } from "./weather-context";
 
@@ -22,11 +22,32 @@ export function RideDetail({
   detail,
   loading,
   error,
+  segments,
+  creatingSegment,
+  segmentError,
+  onCreateSegment,
+  onUpdateSegment,
 }: {
   readonly activity: ActivityListItem;
   readonly detail: ActivityDetailResponse | null;
   readonly loading: boolean;
   readonly error: string | null;
+  readonly segments: ReadonlyArray<ActivitySegment>;
+  readonly creatingSegment: boolean;
+  readonly segmentError: string | null;
+  readonly onCreateSegment: (payload: {
+    readonly name: string;
+    readonly startRecordIndex: number;
+    readonly endRecordIndex: number;
+  }) => Promise<void>;
+  readonly onUpdateSegment: (
+    segmentId: string,
+    payload: {
+      readonly name: string;
+      readonly startRecordIndex: number;
+      readonly endRecordIndex: number;
+    },
+  ) => Promise<void>;
 }) {
   const records = detail?.records ?? [];
 
@@ -68,7 +89,15 @@ export function RideDetail({
       <WeatherContext weather={detail?.weather ?? null} />
 
       <div className="mt-3.5 grid grid-cols-[1.4fr_0.6fr] gap-0 border border-ride-line bg-ride-abyss max-[900px]:grid-cols-1">
-        <RouteMap records={records} loading={loading} />
+        <RouteMap
+          records={records}
+          loading={loading}
+          segments={segments}
+          creatingSegment={creatingSegment}
+          segmentError={segmentError}
+          onCreateSegment={onCreateSegment}
+          onUpdateSegment={onUpdateSegment}
+        />
         <div
           className={cn(
             "grid min-w-0 grid-rows-3 border-l border-ride-line bg-ride-abyss",

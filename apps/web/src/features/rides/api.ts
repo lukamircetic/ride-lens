@@ -2,13 +2,17 @@ import type {
   ActivityDetailResponse,
   ActivityListResponse,
   ActivityRoutesResponse,
+  ActivitySegmentsResponse,
   FitImportResponse,
+  SegmentDetailResponse,
 } from "@ride-lens/api";
 import {
   decodeActivityDetailResponse,
   decodeActivityListResponse,
   decodeActivityRoutesResponse,
+  decodeActivitySegmentsResponse,
   decodeFitImportResponse,
+  decodeSegmentDetailResponse,
 } from "@ride-lens/api";
 
 type Decode<A> = (payload: unknown) => Promise<A>;
@@ -23,6 +27,38 @@ export function listActivityRoutes(): Promise<ActivityRoutesResponse> {
 
 export function getActivity(activityId: string): Promise<ActivityDetailResponse> {
   return requestJson(`/api/activities/${activityId}`, decodeActivityDetailResponse);
+}
+
+export function listActivitySegments(activityId: string): Promise<ActivitySegmentsResponse> {
+  return requestJson(`/api/activities/${activityId}/segments`, decodeActivitySegmentsResponse);
+}
+
+export function createSegment(payload: {
+  readonly activityId: string;
+  readonly name: string;
+  readonly startRecordIndex: number;
+  readonly endRecordIndex: number;
+}): Promise<SegmentDetailResponse> {
+  return requestJson("/api/segments", decodeSegmentDetailResponse, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+}
+
+export function updateSegment(
+  segmentId: string,
+  payload: {
+    readonly name: string;
+    readonly startRecordIndex: number;
+    readonly endRecordIndex: number;
+  },
+): Promise<SegmentDetailResponse> {
+  return requestJson(`/api/segments/${segmentId}`, decodeSegmentDetailResponse, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload),
+  });
 }
 
 export async function importFitFile(file: File): Promise<FitImportResponse> {

@@ -2,12 +2,14 @@ import type {
   ActivityDetailResponse,
   ActivityListResponse,
   ActivityRoutesResponse,
+  ActivitySegmentsResponse,
 } from "@ride-lens/api";
 
 export type ActivityListItem = ActivityListResponse["activities"][number];
 export type ActivityRoute = ActivityRoutesResponse["routes"][number];
 export type ActivityRoutePoint = ActivityRoute["points"][number];
 export type ActivityRecord = ActivityDetailResponse["records"][number];
+export type ActivitySegment = ActivitySegmentsResponse["segments"][number];
 
 export interface LoadState<A> {
   data: A | null;
