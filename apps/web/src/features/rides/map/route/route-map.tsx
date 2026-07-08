@@ -1,26 +1,27 @@
 import maplibregl, { type Map as MapLibreMap, type MapMouseEvent } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { MAPTILER_STYLE_URL } from "../constants";
+import { MAPTILER_STYLE_URL } from "../../constants";
 import {
   formatBpm,
   formatDistance,
   formatDuration,
   formatElevation,
   formatSpeed,
-} from "../formatters";
-import type { ActivityRecord, ActivitySegment, ActivityRoutePoint, RouteMetric } from "../types";
-import { applyAppleDarkBasemapStyle } from "./basemap-style";
+} from "../../formatters";
+import type { ActivityRecord, ActivitySegment, ActivityRoutePoint, RouteMetric } from "../../types";
+import { MapEmptyState } from "../components/map-empty-state";
+import { MapLegend } from "../components/map-legend";
+import { MapMetricButton } from "../components/map-metric-button";
+import { type RideReplay, ReplayMapControls, useReplayMapEffects } from "../replay/ride-replay";
+import { applyAppleDarkBasemapStyle } from "../style/basemap-style";
 import {
   addSegmentOverlayLayers,
   addSelectedRouteLayers,
   updateSegmentOverlayData,
   updateSelectedRouteData,
-} from "./layers";
-import { fitMapToPoints } from "./map-fit";
-import { MapEmptyState } from "./map-empty-state";
-import { MapLegend } from "./map-legend";
-import { MapMetricButton } from "./map-metric-button";
+} from "../style/layers";
+import { fitMapToPoints } from "../style/map-fit";
 import { firstAvailableRouteMetric, routeMetricAvailability } from "./metrics";
 import { recordsToRoutePoints } from "./route-points";
 
@@ -28,6 +29,7 @@ export function RouteMap({
   records,
   loading,
   segments,
+  replay,
   creatingSegment,
   segmentError,
   onCreateSegment,
@@ -36,6 +38,7 @@ export function RouteMap({
   readonly records: ReadonlyArray<ActivityRecord>;
   readonly loading: boolean;
   readonly segments: ReadonlyArray<ActivitySegment>;
+  readonly replay: RideReplay;
   readonly creatingSegment: boolean;
   readonly segmentError: string | null;
   readonly onCreateSegment: (payload: {
@@ -55,6 +58,7 @@ export function RouteMap({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const loadedRef = useRef(false);
+  const [mapReady, setMapReady] = useState(false);
   const routeStateRef = useRef<{
     points: ReturnType<typeof recordsToRoutePoints>;
     metric: RouteMetric;
@@ -84,6 +88,7 @@ export function RouteMap({
     [records, draftStartRecordIndex, draftEndRecordIndex],
   );
   const hasRoute = points.length >= 2;
+  useReplayMapEffects({ map: mapReady ? mapRef.current : null, replay });
   const canSaveDraft =
     draftName.trim().length > 0 &&
     draftStartRecordIndex !== null &&
@@ -146,6 +151,7 @@ export function RouteMap({
       const current = routeStateRef.current;
 
       loadedRef.current = true;
+      setMapReady(true);
       applyAppleDarkBasemapStyle(map);
       addSelectedRouteLayers(map);
       addSegmentOverlayLayers(map);
@@ -164,6 +170,7 @@ export function RouteMap({
 
     return () => {
       loadedRef.current = false;
+      setMapReady(false);
       mapRef.current = null;
       map.remove();
     };
@@ -347,7 +354,7 @@ export function RouteMap({
             ) : null}
           </div>
           <div className="!absolute !inset-0" ref={containerRef} />
-          <MapLegend metric={metric} points={points} />
+          {replay.enabled && !segmentMode ? null : <MapLegend metric={metric} points={points} />}
 
           {segmentMode ? (
             <div className="absolute right-3 bottom-3 z-[2] w-[min(360px,calc(100%-24px))] border border-ride-amber bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
@@ -421,7 +428,7 @@ export function RouteMap({
           ) : null}
 
           {!segmentMode && showSegments && activeSegment ? (
-            <div className="absolute right-3 bottom-3 z-[2] w-[min(340px,calc(100%-24px))] border border-ride-line bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
+            <div className="absolute right-3 bottom-[112px] z-[2] w-[min(340px,calc(100%-24px))] border border-ride-line bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur max-[900px]:bottom-[190px]">
               <div className="mb-2 flex items-start justify-between gap-3">
                 <div className="min-w-0 font-ride text-[11px] font-bold uppercase text-ride-ink">
                   {activeSegment.segment.name}
@@ -475,7 +482,7 @@ export function RouteMap({
           ) : null}
 
           {!segmentMode && showSegments && segments.length > 0 ? (
-            <div className="absolute bottom-3 left-3 z-[2] flex max-w-[calc(100%-390px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:max-w-none">
+            <div className="absolute bottom-[112px] left-3 z-[2] flex max-w-[calc(100%-390px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:bottom-[190px] max-[900px]:max-w-none">
               {segments.map(({ effort, segment }) => (
                 <button
                   key={effort.id}
@@ -488,6 +495,7 @@ export function RouteMap({
               ))}
             </div>
           ) : null}
+          <ReplayMapControls replay={replay} hidden={segmentMode} />
         </div>
       ) : (
         <MapEmptyState

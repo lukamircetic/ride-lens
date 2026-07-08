@@ -1,5 +1,5 @@
-import { formatBpm, formatSpeed } from "../formatters";
-import type { ActivityRoutePoint, RouteMetric } from "../types";
+import { formatBpm, formatSpeed } from "../../formatters";
+import type { ActivityRoutePoint, RouteMetric } from "../../types";
 
 export function getMetricRange(points: ReadonlyArray<ActivityRoutePoint>, metric: RouteMetric) {
   const values = points

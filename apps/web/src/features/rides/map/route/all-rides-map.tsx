@@ -1,12 +1,12 @@
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef } from "react";
 
-import { MAPTILER_STYLE_URL } from "../constants";
-import type { ActivityRoute } from "../types";
-import { applyAppleDarkBasemapStyle } from "./basemap-style";
-import { addAllRideRouteLayers, updateAllRideRouteData } from "./layers";
-import { fitMapToRoutes } from "./map-fit";
-import { MapEmptyState } from "./map-empty-state";
+import { MAPTILER_STYLE_URL } from "../../constants";
+import type { ActivityRoute } from "../../types";
+import { MapEmptyState } from "../components/map-empty-state";
+import { applyAppleDarkBasemapStyle } from "../style/basemap-style";
+import { addAllRideRouteLayers, updateAllRideRouteData } from "../style/layers";
+import { fitMapToRoutes } from "../style/map-fit";
 
 export function AllRidesMap({
   routes,

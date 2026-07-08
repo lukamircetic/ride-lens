@@ -1,6 +1,6 @@
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 
-import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../types";
+import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../../types";
 import {
   allRideRoutesFeatureCollection,
   draftSegmentFeatureCollection,
@@ -9,7 +9,7 @@ import {
   routeSegmentsFeatureCollection,
   segmentHandlesFeatureCollection,
   segmentRangesFeatureCollection,
-} from "./geojson";
+} from "../route/geojson";
 import type { GeoJsonData, MapLayerSpecification, MapSourceSpecification } from "./map-types";
 
 export function addSelectedRouteLayers(map: MapLibreMap) {
@@ -133,6 +133,73 @@ export function addSegmentOverlayLayers(map: MapLibreMap) {
   } as MapLayerSpecification);
 }
 
+export function addReplayLayers(map: MapLibreMap) {
+  if (map.getSource("ride-replay-trail")) return;
+
+  map.addSource("ride-replay-trail", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+  map.addSource("ride-replay-rider", {
+    type: "geojson",
+    data: emptyFeatureCollection() as GeoJsonData,
+  } as MapSourceSpecification);
+
+  map.addLayer({
+    id: "ride-replay-trail-casing",
+    type: "line",
+    source: "ride-replay-trail",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#05070a",
+      "line-opacity": 0.94,
+      "line-width": 11,
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "ride-replay-trail",
+    type: "line",
+    source: "ride-replay-trail",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": "#f2efe6",
+      "line-opacity": 0.98,
+      "line-width": 5.8,
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "ride-replay-rider-halo",
+    type: "circle",
+    source: "ride-replay-rider",
+    paint: {
+      "circle-color": "#ffc72c",
+      "circle-opacity": 0.24,
+      "circle-radius": 16,
+      "circle-blur": 0.55,
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
+    id: "ride-replay-rider",
+    type: "circle",
+    source: "ride-replay-rider",
+    paint: {
+      "circle-color": "#ffc72c",
+      "circle-radius": 7,
+      "circle-stroke-color": "#111820",
+      "circle-stroke-width": 3,
+    },
+  } as MapLayerSpecification);
+}
+
+export function updateReplayLayerData(
+  map: MapLibreMap,
+  coordinates: ReadonlyArray<readonly [number, number]>,
+  currentCoordinate: readonly [number, number] | null,
+) {
+  setGeoJsonSourceData(map, "ride-replay-trail", replayTrailFeatureCollection(coordinates));
+  setGeoJsonSourceData(map, "ride-replay-rider", replayRiderFeatureCollection(currentCoordinate));
+}
+
 export function updateSegmentOverlayData(
   map: MapLibreMap,
   points: ReadonlyArray<ActivityRoutePoint>,
@@ -156,6 +223,39 @@ export function updateSegmentOverlayData(
     "segment-handles",
     segmentHandlesFeatureCollection(points, draftStartRecordIndex, draftEndRecordIndex),
   );
+}
+
+function replayTrailFeatureCollection(coordinates: ReadonlyArray<readonly [number, number]>) {
+  if (coordinates.length < 2) return emptyFeatureCollection();
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: {
+          type: "LineString",
+          coordinates,
+        },
+      },
+    ],
+  };
+}
+
+function replayRiderFeatureCollection(coordinate: readonly [number, number] | null) {
+  if (coordinate === null) return emptyFeatureCollection();
+
+  return {
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {},
+        geometry: { type: "Point", coordinates: coordinate },
+      },
+    ],
+  };
 }
 
 export function addAllRideRouteLayers(map: MapLibreMap) {

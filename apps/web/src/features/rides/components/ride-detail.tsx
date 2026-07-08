@@ -11,8 +11,9 @@ import {
   formatWatts,
   formatElevation,
 } from "../formatters";
-import { ProfilePanel } from "../map/profile-panel";
-import { RouteMap } from "../map/route-map";
+import { ProfilePanel } from "../map/profile/profile-panel";
+import { useRideReplay } from "../map/replay/ride-replay";
+import { RouteMap } from "../map/route/route-map";
 import type { ActivityListItem, ActivitySegment } from "../types";
 import { MetricRow } from "./metric-row";
 import { WeatherContext } from "./weather-context";
@@ -50,6 +51,7 @@ export function RideDetail({
   ) => Promise<void>;
 }) {
   const records = detail?.records ?? [];
+  const replay = useRideReplay({ records });
 
   return (
     <div>
@@ -93,6 +95,7 @@ export function RideDetail({
           records={records}
           loading={loading}
           segments={segments}
+          replay={replay}
           creatingSegment={creatingSegment}
           segmentError={segmentError}
           onCreateSegment={onCreateSegment}
@@ -113,6 +116,16 @@ export function RideDetail({
             format={(value) => `${value.toFixed(1)} km/h`}
             fill="#ffc72c"
             stroke="#ffd95f"
+            liveProfile={
+              replay.enabled && replay.hasReplay
+                ? {
+                    data: replay.speedChart.data,
+                    value: replay.speedChart.value,
+                    currentTimeSeconds: replay.elapsedSeconds,
+                    windowSeconds: replay.chartWindowSeconds,
+                  }
+                : undefined
+            }
           />
           <ProfilePanel
             label="Elevation"
@@ -122,6 +135,16 @@ export function RideDetail({
             fill="#ffc72c"
             stroke="#ffc72c"
             area
+            liveProfile={
+              replay.enabled && replay.hasReplay
+                ? {
+                    data: replay.elevationChart.data,
+                    value: replay.elevationChart.value,
+                    currentTimeSeconds: replay.elapsedSeconds,
+                    windowSeconds: replay.chartWindowSeconds,
+                  }
+                : undefined
+            }
           />
           <ProfilePanel
             label="Heart rate"
@@ -130,6 +153,16 @@ export function RideDetail({
             format={(value) => `${Math.round(value)} bpm`}
             fill="#9c7a12"
             stroke="#ff5a5f"
+            liveProfile={
+              replay.enabled && replay.hasReplay
+                ? {
+                    data: replay.heartRateChart.data,
+                    value: replay.heartRateChart.value,
+                    currentTimeSeconds: replay.elapsedSeconds,
+                    windowSeconds: replay.chartWindowSeconds,
+                  }
+                : undefined
+            }
           />
         </div>
       </div>
