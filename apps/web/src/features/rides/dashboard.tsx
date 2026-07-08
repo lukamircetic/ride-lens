@@ -30,7 +30,7 @@ import {
   formatImportFailures,
   formatUploadProgress,
 } from "./formatters";
-import { AllRidesMap } from "./map/all-rides-map";
+import { AllRidesMap } from "./map/route/all-rides-map";
 import { monthlyDistance, summarizeActivities, summarizeSeason } from "./season";
 import type { LoadState } from "./types";
 

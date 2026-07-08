@@ -1,4 +1,4 @@
-import type { ActivityRecord, ActivityRoutePoint } from "../types";
+import type { ActivityRecord, ActivityRoutePoint } from "../../types";
 
 export function recordsToRoutePoints(
   records: ReadonlyArray<ActivityRecord>,

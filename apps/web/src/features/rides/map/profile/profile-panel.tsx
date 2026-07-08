@@ -1,7 +1,6 @@
-import NumberFlow, { type Format } from "@number-flow/react";
 import { useMemo } from "react";
 
-import type { ActivityRecord } from "../types";
+import type { ActivityRecord } from "../../types";
 import { buildProfileArea, buildProfilePath } from "./profile-path";
 
 interface LiveProfilePoint {
@@ -19,10 +18,6 @@ interface LiveProfile {
   readonly value: number | null;
   readonly currentTimeSeconds: number;
   readonly windowSeconds: number;
-  readonly numberFlow?: {
-    readonly format: Format;
-    readonly suffix: string;
-  };
 }
 
 export function ProfilePanel({
@@ -84,17 +79,9 @@ export function ProfilePanel({
       <div className="flex items-baseline justify-between">
         <span className="font-ride text-[11px] font-bold uppercase text-ride-ink-dim">{label}</span>
         <b className="font-ride-mono text-[13px] text-ride-ink">
-          {displayedValue === undefined || displayedValue === null ? (
-            "no data"
-          ) : liveProfile?.numberFlow === undefined ? (
-            formatValue(displayedValue)
-          ) : (
-            <NumberFlow
-              value={displayedValue}
-              format={liveProfile.numberFlow.format}
-              suffix={liveProfile.numberFlow.suffix}
-            />
-          )}
+          {displayedValue === undefined || displayedValue === null
+            ? "no data"
+            : formatValue(displayedValue)}
         </b>
       </div>
       {liveProfile === undefined ? (

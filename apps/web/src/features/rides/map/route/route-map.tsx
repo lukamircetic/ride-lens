@@ -1,28 +1,28 @@
 import maplibregl, { type Map as MapLibreMap, type MapMouseEvent } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import { MAPTILER_STYLE_URL } from "../constants";
+import { MAPTILER_STYLE_URL } from "../../constants";
 import {
   formatBpm,
   formatDistance,
   formatDuration,
   formatElevation,
   formatSpeed,
-} from "../formatters";
-import type { ActivityRecord, ActivitySegment, ActivityRoutePoint, RouteMetric } from "../types";
-import { applyAppleDarkBasemapStyle } from "./basemap-style";
+} from "../../formatters";
+import type { ActivityRecord, ActivitySegment, ActivityRoutePoint, RouteMetric } from "../../types";
+import { MapEmptyState } from "../components/map-empty-state";
+import { MapLegend } from "../components/map-legend";
+import { MapMetricButton } from "../components/map-metric-button";
+import { type RideReplay, ReplayMapControls, useReplayMapEffects } from "../replay/ride-replay";
+import { applyAppleDarkBasemapStyle } from "../style/basemap-style";
 import {
   addSegmentOverlayLayers,
   addSelectedRouteLayers,
   updateSegmentOverlayData,
   updateSelectedRouteData,
-} from "./layers";
-import { fitMapToPoints } from "./map-fit";
-import { MapEmptyState } from "./map-empty-state";
-import { MapLegend } from "./map-legend";
-import { MapMetricButton } from "./map-metric-button";
+} from "../style/layers";
+import { fitMapToPoints } from "../style/map-fit";
 import { firstAvailableRouteMetric, routeMetricAvailability } from "./metrics";
-import { type RideReplay, ReplayMapControls, useReplayMapEffects } from "./ride-replay";
 import { recordsToRoutePoints } from "./route-points";
 
 export function RouteMap({
@@ -354,7 +354,7 @@ export function RouteMap({
             ) : null}
           </div>
           <div className="!absolute !inset-0" ref={containerRef} />
-          <MapLegend metric={metric} points={points} />
+          {replay.enabled && !segmentMode ? null : <MapLegend metric={metric} points={points} />}
 
           {segmentMode ? (
             <div className="absolute right-3 bottom-3 z-[2] w-[min(360px,calc(100%-24px))] border border-ride-amber bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">

@@ -1,6 +1,6 @@
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 
-import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../types";
+import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../../types";
 import {
   allRideRoutesFeatureCollection,
   draftSegmentFeatureCollection,
@@ -9,7 +9,7 @@ import {
   routeSegmentsFeatureCollection,
   segmentHandlesFeatureCollection,
   segmentRangesFeatureCollection,
-} from "./geojson";
+} from "../route/geojson";
 import type { GeoJsonData, MapLayerSpecification, MapSourceSpecification } from "./map-types";
 
 export function addSelectedRouteLayers(map: MapLibreMap) {
@@ -144,10 +144,6 @@ export function addReplayLayers(map: MapLibreMap) {
     type: "geojson",
     data: emptyFeatureCollection() as GeoJsonData,
   } as MapSourceSpecification);
-  map.addSource("ride-replay-heading", {
-    type: "geojson",
-    data: emptyFeatureCollection() as GeoJsonData,
-  } as MapSourceSpecification);
 
   map.addLayer({
     id: "ride-replay-trail-casing",
@@ -169,18 +165,6 @@ export function addReplayLayers(map: MapLibreMap) {
       "line-color": "#f2efe6",
       "line-opacity": 0.98,
       "line-width": 5.8,
-    },
-  } as MapLayerSpecification);
-  map.addLayer({
-    id: "ride-replay-heading",
-    type: "line",
-    source: "ride-replay-heading",
-    layout: { "line-cap": "round", "line-join": "round" },
-    paint: {
-      "line-color": "#ffc72c",
-      "line-opacity": 0.92,
-      "line-width": 3,
-      "line-dasharray": [1.4, 1.2],
     },
   } as MapLayerSpecification);
   map.addLayer({
@@ -211,15 +195,9 @@ export function updateReplayLayerData(
   map: MapLibreMap,
   coordinates: ReadonlyArray<readonly [number, number]>,
   currentCoordinate: readonly [number, number] | null,
-  headingCoordinate: readonly [number, number] | null,
 ) {
   setGeoJsonSourceData(map, "ride-replay-trail", replayTrailFeatureCollection(coordinates));
   setGeoJsonSourceData(map, "ride-replay-rider", replayRiderFeatureCollection(currentCoordinate));
-  setGeoJsonSourceData(
-    map,
-    "ride-replay-heading",
-    replayHeadingFeatureCollection(currentCoordinate, headingCoordinate),
-  );
 }
 
 export function updateSegmentOverlayData(
@@ -275,27 +253,6 @@ function replayRiderFeatureCollection(coordinate: readonly [number, number] | nu
         type: "Feature",
         properties: {},
         geometry: { type: "Point", coordinates: coordinate },
-      },
-    ],
-  };
-}
-
-function replayHeadingFeatureCollection(
-  currentCoordinate: readonly [number, number] | null,
-  headingCoordinate: readonly [number, number] | null,
-) {
-  if (currentCoordinate === null || headingCoordinate === null) return emptyFeatureCollection();
-
-  return {
-    type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: {
-          type: "LineString",
-          coordinates: [currentCoordinate, headingCoordinate],
-        },
       },
     ],
   };

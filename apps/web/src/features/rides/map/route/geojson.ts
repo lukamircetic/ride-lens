@@ -1,5 +1,5 @@
-import { formatRideTitle } from "../formatters";
-import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../types";
+import { formatRideTitle } from "../../formatters";
+import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../../types";
 import { getMetricColor, getMetricRange, getMetricValue } from "./metrics";
 
 export function routeSegmentsFeatureCollection(

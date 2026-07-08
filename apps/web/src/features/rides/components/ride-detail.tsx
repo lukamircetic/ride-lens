@@ -11,9 +11,9 @@ import {
   formatWatts,
   formatElevation,
 } from "../formatters";
-import { ProfilePanel } from "../map/profile-panel";
-import { useRideReplay } from "../map/ride-replay";
-import { RouteMap } from "../map/route-map";
+import { ProfilePanel } from "../map/profile/profile-panel";
+import { useRideReplay } from "../map/replay/ride-replay";
+import { RouteMap } from "../map/route/route-map";
 import type { ActivityListItem, ActivitySegment } from "../types";
 import { MetricRow } from "./metric-row";
 import { WeatherContext } from "./weather-context";
@@ -117,7 +117,7 @@ export function RideDetail({
             fill="#ffc72c"
             stroke="#ffd95f"
             liveProfile={
-              replay.hasReplay
+              replay.enabled && replay.hasReplay
                 ? {
                     data: replay.speedChart.data,
                     value: replay.speedChart.value,
@@ -136,13 +136,12 @@ export function RideDetail({
             stroke="#ffc72c"
             area
             liveProfile={
-              replay.hasReplay
+              replay.enabled && replay.hasReplay
                 ? {
                     data: replay.elevationChart.data,
                     value: replay.elevationChart.value,
                     currentTimeSeconds: replay.elapsedSeconds,
                     windowSeconds: replay.chartWindowSeconds,
-                    numberFlow: { format: { maximumFractionDigits: 0 }, suffix: " m" },
                   }
                 : undefined
             }
@@ -155,7 +154,7 @@ export function RideDetail({
             fill="#9c7a12"
             stroke="#ff5a5f"
             liveProfile={
-              replay.hasReplay
+              replay.enabled && replay.hasReplay
                 ? {
                     data: replay.heartRateChart.data,
                     value: replay.heartRateChart.value,

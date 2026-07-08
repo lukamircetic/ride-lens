@@ -1,6 +1,6 @@
 import maplibregl, { type Map as MapLibreMap } from "maplibre-gl";
 
-import type { ActivityRoute, ActivityRoutePoint } from "../types";
+import type { ActivityRoute, ActivityRoutePoint } from "../../types";
 
 export function fitMapToRoutes(
   map: MapLibreMap,

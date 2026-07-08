@@ -1,8 +1,8 @@
 import { cn } from "@ride-lens/ui/lib/utils";
 import { GaugeIcon, HeartPulseIcon, MountainIcon } from "lucide-react";
 
-import type { RouteMetric } from "../types";
-import { metricLabel } from "./metrics";
+import type { RouteMetric } from "../../types";
+import { metricLabel } from "../route/metrics";
 
 export function MapMetricButton({
   metric,

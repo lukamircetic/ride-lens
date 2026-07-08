@@ -1,5 +1,5 @@
-import type { ActivityRoutePoint, RouteMetric } from "../types";
-import { formatMetricValue, getMetricRange, metricLabel } from "./metrics";
+import type { ActivityRoutePoint, RouteMetric } from "../../types";
+import { formatMetricValue, getMetricRange, metricLabel } from "../route/metrics";
 
 export function MapLegend({
   metric,

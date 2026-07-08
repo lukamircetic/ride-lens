@@ -12,7 +12,6 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^5.4.0",
-    "@number-flow/react": "^0.6.1",
     "@ride-lens/api": "workspace:*",
     "@ride-lens/env": "workspace:*",
     "@ride-lens/ui": "workspace:*",
