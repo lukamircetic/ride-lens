@@ -93,6 +93,7 @@ export function RideDetail({
           records={records}
           loading={loading}
           segments={segments}
+          weather={detail?.weather ?? null}
           creatingSegment={creatingSegment}
           segmentError={segmentError}
           onCreateSegment={onCreateSegment}

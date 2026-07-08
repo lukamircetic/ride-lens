@@ -136,7 +136,14 @@ function layerKey(layer: MapStyleLayer): string {
 }
 
 function isRideLensLayer(layerId: string): boolean {
-  return layerId.startsWith("selected-route") || layerId.startsWith("all-ride-routes");
+  return (
+    layerId.startsWith("selected-route") ||
+    layerId.startsWith("all-ride-routes") ||
+    layerId.startsWith("ride-segment") ||
+    layerId.startsWith("draft-segment") ||
+    layerId.startsWith("segment-handles") ||
+    layerId.startsWith("ride-replay")
+  );
 }
 
 function setLayerVisibility(map: MapLibreMap, layerId: string, visibility: "visible" | "none") {
