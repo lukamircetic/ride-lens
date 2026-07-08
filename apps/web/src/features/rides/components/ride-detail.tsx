@@ -95,7 +95,6 @@ export function RideDetail({
           records={records}
           loading={loading}
           segments={segments}
-          weather={detail?.weather ?? null}
           replay={replay}
           creatingSegment={creatingSegment}
           segmentError={segmentError}
@@ -122,6 +121,7 @@ export function RideDetail({
                 ? {
                     data: replay.speedChart.data,
                     value: replay.speedChart.value,
+                    currentTimeSeconds: replay.elapsedSeconds,
                     windowSeconds: replay.chartWindowSeconds,
                   }
                 : undefined
@@ -140,6 +140,7 @@ export function RideDetail({
                 ? {
                     data: replay.elevationChart.data,
                     value: replay.elevationChart.value,
+                    currentTimeSeconds: replay.elapsedSeconds,
                     windowSeconds: replay.chartWindowSeconds,
                     numberFlow: { format: { maximumFractionDigits: 0 }, suffix: " m" },
                   }
@@ -158,6 +159,7 @@ export function RideDetail({
                 ? {
                     data: replay.heartRateChart.data,
                     value: replay.heartRateChart.value,
+                    currentTimeSeconds: replay.elapsedSeconds,
                     windowSeconds: replay.chartWindowSeconds,
                   }
                 : undefined

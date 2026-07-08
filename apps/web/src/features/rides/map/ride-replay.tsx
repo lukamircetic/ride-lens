@@ -1,23 +1,11 @@
-import type { ActivityDetailResponse } from "@ride-lens/api";
 import { cn } from "@ride-lens/ui/lib/utils";
-import { CompassIcon, PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react";
-import type { LivelinePoint } from "liveline";
+import { PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
-import {
-  formatBpm,
-  formatDistance,
-  formatDuration,
-  formatElevation,
-  formatSpeed,
-  formatWindDirection,
-  formatWindSpeed,
-} from "../formatters";
+import { formatDuration } from "../formatters";
 import type { ActivityRecord } from "../types";
 import { addReplayLayers, updateReplayLayerData } from "./layers";
-
-type WeatherSummary = ActivityDetailResponse["weather"];
 
 type ReplayCameraMode = "static" | "follow" | "rotate";
 const speedMultipliers = [8, 16, 32, 64, 128] as const;
@@ -31,6 +19,11 @@ interface ReplaySample {
   readonly speedMetersPerSecond: number | null;
   readonly heartRateBpm: number | null;
   readonly altitudeMeters: number | null;
+}
+
+interface MetricChartPoint {
+  readonly time: number;
+  readonly value: number;
 }
 
 export interface ReplayFrame {
@@ -197,33 +190,6 @@ export function useReplayMapEffects({
   }, [cameraMode, frame.coordinate, frame.headingDegrees, map]);
 }
 
-export function ReplayMapBadge({
-  frame,
-  weather,
-}: {
-  readonly frame: ReplayFrame;
-  readonly weather: WeatherSummary;
-}) {
-  if (frame.coordinate === null) return null;
-
-  return (
-    <div className="absolute top-[54px] right-[52px] z-[2] grid w-[min(260px,calc(100%-76px))] grid-cols-2 border border-ride-ink/20 bg-[#12171d]/90 text-ride-ink shadow-[0_12px_28px_rgba(0,0,0,0.24)] backdrop-blur max-[900px]:top-auto max-[900px]:right-3 max-[900px]:bottom-[86px] max-[900px]:w-[min(260px,calc(100%-24px))]">
-      <MapBadgeCell
-        iconRotation={weather?.dominantWindDirectionDegrees ?? null}
-        label="Wind"
-        value={formatWindSpeed(weather?.averageWindSpeedMetersPerSecond ?? null)}
-        subValue={formatWindDirection(weather?.dominantWindDirectionDegrees ?? null)}
-      />
-      <MapBadgeCell
-        iconRotation={frame.headingDegrees}
-        label="Heading"
-        value={formatBearing(frame.headingDegrees)}
-        subValue={formatWindDirection(frame.headingDegrees)}
-      />
-    </div>
-  );
-}
-
 export function ReplayMapControls({
   replay,
   hidden,
@@ -234,7 +200,7 @@ export function ReplayMapControls({
   if (!replay.hasReplay || hidden) return null;
 
   return (
-    <div className="absolute right-3 bottom-3 left-3 z-[2] grid grid-cols-[minmax(300px,0.72fr)_minmax(340px,1fr)] gap-px border border-ride-line bg-ride-line-soft shadow-[0_16px_38px_rgba(0,0,0,0.36)] max-[900px]:grid-cols-1">
+    <div className="absolute bottom-3 left-3 z-[2] w-[min(330px,calc(100%-24px))] border border-ride-line bg-ride-line-soft shadow-[0_16px_38px_rgba(0,0,0,0.36)]">
       <div className="bg-[#10161c]/96 p-2.5 backdrop-blur">
         <div className="flex items-center gap-2.5">
           <button
@@ -311,51 +277,6 @@ export function ReplayMapControls({
             </button>
           </div>
         </div>
-      </div>
-
-      <div className="grid grid-cols-4 gap-px bg-ride-line-soft max-[900px]:grid-cols-2">
-        <ReplayStaticCell label="Distance" value={formatDistance(replay.frame.distanceMeters)} />
-        <ReplayStaticCell label="Speed" value={formatSpeed(replay.frame.speedMetersPerSecond)} />
-        <ReplayStaticCell
-          label="Elevation"
-          value={`${formatElevation(replay.frame.altitudeMeters)} m`}
-        />
-        <ReplayStaticCell label="Heart rate" value={formatBpm(replay.frame.heartRateBpm)} />
-      </div>
-    </div>
-  );
-}
-
-function ReplayStaticCell({ label, value }: { readonly label: string; readonly value: string }) {
-  return (
-    <div className="min-w-0 bg-[#10161c]/96 px-3 py-2 backdrop-blur">
-      <div className="font-ride text-[9px] font-bold uppercase text-ride-ink-dim">{label}</div>
-      <div className="mt-0.5 truncate font-ride-mono text-[12px] text-ride-ink">{value}</div>
-    </div>
-  );
-}
-
-function MapBadgeCell({
-  label,
-  value,
-  subValue,
-  iconRotation,
-}: {
-  readonly label: string;
-  readonly value: string;
-  readonly subValue: string;
-  readonly iconRotation: number | null;
-}) {
-  return (
-    <div className="flex min-w-0 items-center gap-2 border-r border-ride-line-soft px-2.5 py-2 last:border-r-0">
-      <CompassIcon
-        className="size-[18px] shrink-0 text-ride-amber"
-        style={{ transform: iconRotation === null ? undefined : `rotate(${iconRotation}deg)` }}
-      />
-      <div className="min-w-0">
-        <div className="font-ride text-[8px] font-bold uppercase text-ride-ink-dim">{label}</div>
-        <div className="truncate font-ride-mono text-[11px] text-ride-ink">{value}</div>
-        <div className="font-ride-mono text-[10px] text-ride-ink-dim">{subValue}</div>
       </div>
     </div>
   );
@@ -493,12 +414,14 @@ function buildMetricChart(
   frame: ReplayFrame,
   getValue: (sample: ReplaySample) => number | null,
 ) {
-  const data = samples.slice(0, frame.sampleIndex + 1).flatMap((sample): Array<LivelinePoint> => {
-    const value = getValue(sample);
-    return value === null || !Number.isFinite(value)
-      ? []
-      : [{ time: sample.elapsedSeconds, value }];
-  });
+  const data = samples
+    .slice(0, frame.sampleIndex + 1)
+    .flatMap((sample): Array<MetricChartPoint> => {
+      const value = getValue(sample);
+      return value === null || !Number.isFinite(value)
+        ? []
+        : [{ time: sample.elapsedSeconds, value }];
+    });
   const currentValue = currentMetricValue(frame, getValue);
 
   if (currentValue !== null) {
@@ -591,10 +514,6 @@ function normalizeLongitude(longitude: number) {
 
 function normalizeDegrees(degrees: number) {
   return ((degrees % 360) + 360) % 360;
-}
-
-function formatBearing(value: number | null) {
-  return value === null ? "n/a" : `${Math.round(normalizeDegrees(value))} deg`;
 }
 
 function toRadians(degrees: number) {

@@ -1,4 +1,3 @@
-import type { ActivityDetailResponse } from "@ride-lens/api";
 import maplibregl, { type Map as MapLibreMap, type MapMouseEvent } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -23,19 +22,13 @@ import { MapEmptyState } from "./map-empty-state";
 import { MapLegend } from "./map-legend";
 import { MapMetricButton } from "./map-metric-button";
 import { firstAvailableRouteMetric, routeMetricAvailability } from "./metrics";
-import {
-  type RideReplay,
-  ReplayMapBadge,
-  ReplayMapControls,
-  useReplayMapEffects,
-} from "./ride-replay";
+import { type RideReplay, ReplayMapControls, useReplayMapEffects } from "./ride-replay";
 import { recordsToRoutePoints } from "./route-points";
 
 export function RouteMap({
   records,
   loading,
   segments,
-  weather,
   replay,
   creatingSegment,
   segmentError,
@@ -45,7 +38,6 @@ export function RouteMap({
   readonly records: ReadonlyArray<ActivityRecord>;
   readonly loading: boolean;
   readonly segments: ReadonlyArray<ActivitySegment>;
-  readonly weather: ActivityDetailResponse["weather"];
   readonly replay: RideReplay;
   readonly creatingSegment: boolean;
   readonly segmentError: string | null;
@@ -363,7 +355,6 @@ export function RouteMap({
           </div>
           <div className="!absolute !inset-0" ref={containerRef} />
           <MapLegend metric={metric} points={points} />
-          <ReplayMapBadge frame={replay.frame} weather={weather} />
 
           {segmentMode ? (
             <div className="absolute right-3 bottom-3 z-[2] w-[min(360px,calc(100%-24px))] border border-ride-amber bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
