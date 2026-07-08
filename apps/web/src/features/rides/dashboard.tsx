@@ -6,7 +6,6 @@ import type {
 } from "@ride-lens/api";
 import { cn } from "@ride-lens/ui/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
-import { FileUpIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import {
@@ -18,6 +17,7 @@ import {
   listActivitySegments,
   updateSegment,
 } from "./api";
+import { AppHeader } from "./components/app-header";
 import { EmptyState } from "./components/empty-state";
 import { RideDetail } from "./components/ride-detail";
 import { RideLog } from "./components/ride-log";
@@ -42,9 +42,6 @@ const sectionHeaderClassName = "mb-5 flex flex-wrap items-baseline justify-betwe
 const sectionTitleClassName = "font-ride text-[13px] font-bold uppercase text-ride-ink-muted";
 
 const sectionSubClassName = "font-ride text-[11px] text-ride-ink-dim";
-
-const uploadButtonClassName =
-  "inline-flex cursor-pointer items-center gap-2 border border-ride-line bg-ride-night-2 px-3.5 py-[9px] font-ride text-xs font-bold uppercase text-ride-ink transition-colors hover:border-ride-amber hover:text-ride-amber disabled:cursor-default disabled:opacity-50 [&_svg]:size-[15px]";
 
 const EMPTY_ACTIVITY_SEGMENTS: ActivitySegmentsResponse = { segments: [] };
 
@@ -323,39 +320,19 @@ export function RideDashboard({
   return (
     <div data-app="ride-lens">
       <div className="mx-auto max-w-[1240px] px-7 pb-[60px]">
-        <header className="pt-[26px] pb-[22px]">
-          <div className="flex items-center gap-[22px]">
-            <a
-              className="whitespace-nowrap font-ride text-[30px] leading-none font-black uppercase text-ride-ink no-underline"
-              href="/"
-            >
-              Ride Lens
-            </a>
-            <span
-              className="h-[3px] flex-1 -translate-y-0.5 bg-[repeating-linear-gradient(90deg,var(--amber)_0_26px,transparent_26px_44px)]"
-              aria-hidden="true"
-            />
-            <div className="flex gap-2 whitespace-nowrap">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".fit"
-                multiple
-                hidden
-                onChange={(event) => void handleUpload(event.currentTarget.files)}
-              />
-              <button
-                type="button"
-                className={uploadButtonClassName}
-                disabled={uploading}
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <FileUpIcon />
-                {uploading ? formatUploadProgress(uploadProgress) : "Upload FIT"}
-              </button>
-            </div>
-          </div>
-        </header>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".fit"
+          multiple
+          hidden
+          onChange={(event) => void handleUpload(event.currentTarget.files)}
+        />
+        <AppHeader
+          uploading={uploading}
+          uploadLabel={uploading ? formatUploadProgress(uploadProgress) : "Upload FIT"}
+          onUpload={() => fileInputRef.current?.click()}
+        />
 
         {uploadError ? <div className={statusErrorClassName}>{uploadError}</div> : null}
         {activitiesState.error ? (

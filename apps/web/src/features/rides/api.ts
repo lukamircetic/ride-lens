@@ -5,6 +5,7 @@ import type {
   ActivitySegmentsResponse,
   FitImportResponse,
   SegmentDetailResponse,
+  SegmentListResponse,
 } from "@ride-lens/api";
 import {
   decodeActivityDetailResponse,
@@ -13,6 +14,7 @@ import {
   decodeActivitySegmentsResponse,
   decodeFitImportResponse,
   decodeSegmentDetailResponse,
+  decodeSegmentListResponse,
 } from "@ride-lens/api";
 
 type Decode<A> = (payload: unknown) => Promise<A>;
@@ -31,6 +33,10 @@ export function getActivity(activityId: string): Promise<ActivityDetailResponse>
 
 export function listActivitySegments(activityId: string): Promise<ActivitySegmentsResponse> {
   return requestJson(`/api/activities/${activityId}/segments`, decodeActivitySegmentsResponse);
+}
+
+export function listSegments(): Promise<SegmentListResponse> {
+  return requestJson("/api/segments", decodeSegmentListResponse);
 }
 
 export function createSegment(payload: {

@@ -17,12 +17,13 @@ Already implemented:
 - All-rides map with route highlighting and click-to-select behavior.
 - Weather ingestion, weather observation caching, and ride-level wind context summaries.
 - Manual segment schema, selected-ride map create/edit mode, segment stat computation, and same-direction effort matching.
+- Dedicated Segments tab for comparing saved efforts across rides.
 
 Current roadmap position:
 
 - The map foundation is in place.
 - Weather is usable earlier than originally planned, but should still be treated as ride-level context until segment-level matching exists.
-- Manual segment creation/editing is in place; the next major product push should be segment management and comparison across saved efforts.
+- Manual segment creation/editing and basic cross-ride effort comparison are in place; the next major product push should be richer segment inspection, charts, and weather context.
 - Strava/community segment import should be researched and isolated behind a provider boundary before any implementation. The local Ride Lens segment model should not depend on Strava data or Strava retention rights.
 
 ## Map Platform Decision
@@ -185,6 +186,7 @@ Scope:
 
 - Match saved segment geometry against other rides.
 - Compare elapsed time, average speed, HR, climb rate, and elevation gain.
+- Provide a dedicated Segments tab/page with a saved segment list, selected segment summary, ranked effort table, and links back to source rides.
 - Show trend charts over the season.
 - Mark best effort, latest effort, and similar-weather efforts once weather exists.
 
@@ -292,22 +294,22 @@ Completed or materially started:
 8. Add selected-ride map create/edit mode and saved segment overlays.
 9. Save named manual segments in SQLite.
 10. Match saved segments against other rides and persist `segment_efforts`.
+11. Build a dedicated Segments tab/page for saved segment management and effort comparison.
 
 Recommended next implementation order:
 
 1. Add profile-chart highlighting for the selected segment range.
-2. Build a dedicated Segments tab/page for saved segment management.
-3. Add segment comparison charts and weather-context filters.
-4. Add segment-level weather/wind summaries over matched effort ranges.
-5. Add all-rides map filters.
-6. Add 2D ride replay.
-7. Prototype 3D terrain replay.
+2. Add segment comparison charts and weather-context filters.
+3. Add segment-level weather/wind summaries over matched effort ranges.
+4. Add all-rides map filters.
+5. Add 2D ride replay.
+6. Prototype 3D terrain replay.
 
 ## Data Model Notes
 
-Likely future tables:
+Current and likely future tables:
 
-- `manual_segments`: saved segment definitions, names, and geometry/range metadata.
+- `segments`: saved manual segment definitions, names, and geometry/range metadata.
 - `segment_efforts`: per-activity matched segment stats.
 - `weather_observations`: hourly or sampled weather data used by rides/segments.
 - `activity_weather_summaries`: cached ride-level weather and wind summaries.
