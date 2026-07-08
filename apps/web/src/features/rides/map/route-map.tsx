@@ -23,7 +23,12 @@ import { MapEmptyState } from "./map-empty-state";
 import { MapLegend } from "./map-legend";
 import { MapMetricButton } from "./map-metric-button";
 import { firstAvailableRouteMetric, routeMetricAvailability } from "./metrics";
-import { ReplayControlPanel, ReplayMapBadge, useRideReplay } from "./ride-replay";
+import {
+  type RideReplay,
+  ReplayMapBadge,
+  ReplayMapControls,
+  useReplayMapEffects,
+} from "./ride-replay";
 import { recordsToRoutePoints } from "./route-points";
 
 export function RouteMap({
@@ -31,6 +36,7 @@ export function RouteMap({
   loading,
   segments,
   weather,
+  replay,
   creatingSegment,
   segmentError,
   onCreateSegment,
@@ -40,6 +46,7 @@ export function RouteMap({
   readonly loading: boolean;
   readonly segments: ReadonlyArray<ActivitySegment>;
   readonly weather: ActivityDetailResponse["weather"];
+  readonly replay: RideReplay;
   readonly creatingSegment: boolean;
   readonly segmentError: string | null;
   readonly onCreateSegment: (payload: {
@@ -89,11 +96,7 @@ export function RouteMap({
     [records, draftStartRecordIndex, draftEndRecordIndex],
   );
   const hasRoute = points.length >= 2;
-  const replay = useRideReplay({
-    map: mapReady ? mapRef.current : null,
-    records,
-    weather,
-  });
+  useReplayMapEffects({ map: mapReady ? mapRef.current : null, replay });
   const canSaveDraft =
     draftName.trim().length > 0 &&
     draftStartRecordIndex !== null &&
@@ -311,200 +314,198 @@ export function RouteMap({
           body="Add VITE_MAPTILER_API_KEY to apps/web/.env or apps/web/.env.local."
         />
       ) : hasRoute ? (
-        <>
-          <div
-            className={[
-              "relative aspect-[1.25] min-h-[420px] overflow-hidden border bg-[#20252c] transition-colors max-[900px]:aspect-[0.82] max-[900px]:h-auto max-[900px]:min-h-[360px]",
-              segmentMode
-                ? "border-ride-amber shadow-[0_0_0_2px_rgba(255,199,44,0.22)]"
-                : "border-[#343a43]",
-            ].join(" ")}
-          >
-            <div className="absolute top-3 left-3 z-[2] flex max-w-[calc(100%-88px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:max-w-none">
-              <div className="flex flex-wrap gap-1.5" aria-label="Route metric">
-                <MapMetricButton
-                  metric="speed"
-                  activeMetric={metric}
-                  available={availableMetrics.speed}
-                  onSelect={setMetric}
-                />
-                <MapMetricButton
-                  metric="heartRate"
-                  activeMetric={metric}
-                  available={availableMetrics.heartRate}
-                  onSelect={setMetric}
-                />
-                <MapMetricButton
-                  metric="elevation"
-                  activeMetric={metric}
-                  available={availableMetrics.elevation}
-                  onSelect={setMetric}
-                />
-              </div>
+        <div
+          className={[
+            "relative aspect-[1.25] min-h-[420px] overflow-hidden border bg-[#20252c] transition-colors max-[900px]:aspect-[0.82] max-[900px]:h-auto max-[900px]:min-h-[360px]",
+            segmentMode
+              ? "border-ride-amber shadow-[0_0_0_2px_rgba(255,199,44,0.22)]"
+              : "border-[#343a43]",
+          ].join(" ")}
+        >
+          <div className="absolute top-3 left-3 z-[2] flex max-w-[calc(100%-88px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:max-w-none">
+            <div className="flex flex-wrap gap-1.5" aria-label="Route metric">
+              <MapMetricButton
+                metric="speed"
+                activeMetric={metric}
+                available={availableMetrics.speed}
+                onSelect={setMetric}
+              />
+              <MapMetricButton
+                metric="heartRate"
+                activeMetric={metric}
+                available={availableMetrics.heartRate}
+                onSelect={setMetric}
+              />
+              <MapMetricButton
+                metric="elevation"
+                activeMetric={metric}
+                available={availableMetrics.elevation}
+                onSelect={setMetric}
+              />
+            </div>
+            <button
+              type="button"
+              className={segmentButtonClassName(segmentMode)}
+              disabled={creatingSegment}
+              onClick={handleToggleSegmentMode}
+            >
+              {segmentMode ? "Cancel segment" : "Create segment"}
+            </button>
+            {segments.length > 0 ? (
               <button
                 type="button"
-                className={segmentButtonClassName(segmentMode)}
-                disabled={creatingSegment}
-                onClick={handleToggleSegmentMode}
+                className={segmentButtonClassName(showSegments)}
+                onClick={() => setShowSegments((current) => !current)}
               >
-                {segmentMode ? "Cancel segment" : "Create segment"}
+                Segments {segments.length}
               </button>
-              {segments.length > 0 ? (
+            ) : null}
+          </div>
+          <div className="!absolute !inset-0" ref={containerRef} />
+          <MapLegend metric={metric} points={points} />
+          <ReplayMapBadge frame={replay.frame} weather={weather} />
+
+          {segmentMode ? (
+            <div className="absolute right-3 bottom-3 z-[2] w-[min(360px,calc(100%-24px))] border border-ride-amber bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
+              <div className="mb-2 font-ride text-[11px] font-bold uppercase text-ride-amber">
+                {editingSegmentId === null ? "Create segment" : "Edit segment"}
+              </div>
+              <label
+                className="mb-1 block font-ride text-[9px] font-bold uppercase text-ride-ink-dim"
+                htmlFor="segment-name"
+              >
+                Segment name
+              </label>
+              <input
+                id="segment-name"
+                className="mb-2 w-full border border-ride-line bg-ride-night-2 px-2.5 py-2 font-ride text-xs text-ride-ink outline-none focus:border-ride-amber"
+                value={draftName}
+                placeholder="Name this segment"
+                onChange={(event) => setDraftName(event.currentTarget.value)}
+              />
+              <div className="grid grid-cols-3 gap-px border border-ride-line bg-ride-line-soft text-xs">
+                <SegmentPreviewCell
+                  label="Distance"
+                  value={formatDistance(draftStats.distanceMeters)}
+                />
+                <SegmentPreviewCell
+                  label="Elapsed"
+                  value={formatDuration(draftStats.elapsedSeconds)}
+                />
+                <SegmentPreviewCell
+                  label="Avg speed"
+                  value={formatSpeed(draftStats.averageSpeedMetersPerSecond)}
+                />
+                <SegmentPreviewCell
+                  label="Heart rate"
+                  value={formatBpm(draftStats.averageHeartRateBpm)}
+                />
+                <SegmentPreviewCell
+                  label="Climbing"
+                  value={`${formatElevation(draftStats.elevationGainMeters)} m`}
+                />
+                <SegmentPreviewCell
+                  label="Bounds"
+                  value={formatBounds(draftStartRecordIndex, draftEndRecordIndex)}
+                />
+              </div>
+              {segmentError ? (
+                <div className="mt-2 text-xs text-[#e6a59d]">{segmentError}</div>
+              ) : null}
+              <div className="mt-2 flex justify-end gap-1.5">
                 <button
                   type="button"
-                  className={segmentButtonClassName(showSegments)}
-                  onClick={() => setShowSegments((current) => !current)}
+                  className={segmentButtonClassName(false)}
+                  onClick={resetDraft}
                 >
-                  Segments {segments.length}
+                  Clear
                 </button>
-              ) : null}
-            </div>
-            <div className="!absolute !inset-0" ref={containerRef} />
-            <MapLegend metric={metric} points={points} />
-            <ReplayMapBadge frame={replay.frame} weather={weather} />
-
-            {segmentMode ? (
-              <div className="absolute right-3 bottom-3 z-[2] w-[min(360px,calc(100%-24px))] border border-ride-amber bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
-                <div className="mb-2 font-ride text-[11px] font-bold uppercase text-ride-amber">
-                  {editingSegmentId === null ? "Create segment" : "Edit segment"}
-                </div>
-                <label
-                  className="mb-1 block font-ride text-[9px] font-bold uppercase text-ride-ink-dim"
-                  htmlFor="segment-name"
+                <button
+                  type="button"
+                  className={segmentButtonClassName(true)}
+                  disabled={!canSaveDraft || creatingSegment}
+                  onClick={() => void handleSaveDraft()}
                 >
-                  Segment name
-                </label>
-                <input
-                  id="segment-name"
-                  className="mb-2 w-full border border-ride-line bg-ride-night-2 px-2.5 py-2 font-ride text-xs text-ride-ink outline-none focus:border-ride-amber"
-                  value={draftName}
-                  placeholder="Name this segment"
-                  onChange={(event) => setDraftName(event.currentTarget.value)}
-                />
-                <div className="grid grid-cols-3 gap-px border border-ride-line bg-ride-line-soft text-xs">
-                  <SegmentPreviewCell
-                    label="Distance"
-                    value={formatDistance(draftStats.distanceMeters)}
-                  />
-                  <SegmentPreviewCell
-                    label="Elapsed"
-                    value={formatDuration(draftStats.elapsedSeconds)}
-                  />
-                  <SegmentPreviewCell
-                    label="Avg speed"
-                    value={formatSpeed(draftStats.averageSpeedMetersPerSecond)}
-                  />
-                  <SegmentPreviewCell
-                    label="Heart rate"
-                    value={formatBpm(draftStats.averageHeartRateBpm)}
-                  />
-                  <SegmentPreviewCell
-                    label="Climbing"
-                    value={`${formatElevation(draftStats.elevationGainMeters)} m`}
-                  />
-                  <SegmentPreviewCell
-                    label="Bounds"
-                    value={formatBounds(draftStartRecordIndex, draftEndRecordIndex)}
-                  />
-                </div>
-                {segmentError ? (
-                  <div className="mt-2 text-xs text-[#e6a59d]">{segmentError}</div>
-                ) : null}
-                <div className="mt-2 flex justify-end gap-1.5">
-                  <button
-                    type="button"
-                    className={segmentButtonClassName(false)}
-                    onClick={resetDraft}
-                  >
-                    Clear
-                  </button>
-                  <button
-                    type="button"
-                    className={segmentButtonClassName(true)}
-                    disabled={!canSaveDraft || creatingSegment}
-                    onClick={() => void handleSaveDraft()}
-                  >
-                    {creatingSegment
-                      ? "Saving"
-                      : editingSegmentId === null
-                        ? "Save segment"
-                        : "Update segment"}
-                  </button>
-                </div>
+                  {creatingSegment
+                    ? "Saving"
+                    : editingSegmentId === null
+                      ? "Save segment"
+                      : "Update segment"}
+                </button>
               </div>
-            ) : null}
+            </div>
+          ) : null}
 
-            {!segmentMode && showSegments && activeSegment ? (
-              <div className="absolute right-3 bottom-3 z-[2] w-[min(340px,calc(100%-24px))] border border-ride-line bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
-                <div className="mb-2 flex items-start justify-between gap-3">
-                  <div className="min-w-0 font-ride text-[11px] font-bold uppercase text-ride-ink">
-                    {activeSegment.segment.name}
-                  </div>
-                  <div className="flex shrink-0 gap-2">
-                    {activeSegment.effort.source === "source" ? (
-                      <button
-                        type="button"
-                        className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim hover:text-ride-amber"
-                        onClick={() => handleEditSegment(activeSegment)}
-                      >
-                        Edit
-                      </button>
-                    ) : null}
+          {!segmentMode && showSegments && activeSegment ? (
+            <div className="absolute right-3 bottom-[112px] z-[2] w-[min(340px,calc(100%-24px))] border border-ride-line bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur max-[900px]:bottom-[190px]">
+              <div className="mb-2 flex items-start justify-between gap-3">
+                <div className="min-w-0 font-ride text-[11px] font-bold uppercase text-ride-ink">
+                  {activeSegment.segment.name}
+                </div>
+                <div className="flex shrink-0 gap-2">
+                  {activeSegment.effort.source === "source" ? (
                     <button
                       type="button"
                       className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim hover:text-ride-amber"
-                      onClick={() => setActiveEffortId(null)}
+                      onClick={() => handleEditSegment(activeSegment)}
                     >
-                      Close
+                      Edit
                     </button>
-                  </div>
-                </div>
-                <div className="grid grid-cols-3 gap-px border border-ride-line bg-ride-line-soft text-xs">
-                  <SegmentPreviewCell
-                    label="Distance"
-                    value={formatDistance(activeSegment.effort.stats.distanceMeters)}
-                  />
-                  <SegmentPreviewCell
-                    label="Elapsed"
-                    value={formatDuration(activeSegment.effort.stats.elapsedSeconds)}
-                  />
-                  <SegmentPreviewCell
-                    label="Avg speed"
-                    value={formatSpeed(activeSegment.effort.stats.averageSpeedMetersPerSecond)}
-                  />
-                  <SegmentPreviewCell
-                    label="Heart rate"
-                    value={formatBpm(activeSegment.effort.stats.averageHeartRateBpm)}
-                  />
-                  <SegmentPreviewCell
-                    label="Climbing"
-                    value={`${formatElevation(activeSegment.effort.stats.elevationGainMeters)} m`}
-                  />
-                  <SegmentPreviewCell
-                    label="Confidence"
-                    value={`${Math.round(activeSegment.effort.confidence * 100)}%`}
-                  />
-                </div>
-              </div>
-            ) : null}
-
-            {!segmentMode && showSegments && segments.length > 0 ? (
-              <div className="absolute bottom-3 left-3 z-[2] flex max-w-[calc(100%-390px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:max-w-none">
-                {segments.map(({ effort, segment }) => (
+                  ) : null}
                   <button
-                    key={effort.id}
                     type="button"
-                    className={segmentButtonClassName(effort.id === activeEffortId)}
-                    onClick={() => setActiveEffortId(effort.id)}
+                    className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim hover:text-ride-amber"
+                    onClick={() => setActiveEffortId(null)}
                   >
-                    {segment.name}
+                    Close
                   </button>
-                ))}
+                </div>
               </div>
-            ) : null}
-          </div>
-          <ReplayControlPanel replay={replay} hidden={segmentMode} />
-        </>
+              <div className="grid grid-cols-3 gap-px border border-ride-line bg-ride-line-soft text-xs">
+                <SegmentPreviewCell
+                  label="Distance"
+                  value={formatDistance(activeSegment.effort.stats.distanceMeters)}
+                />
+                <SegmentPreviewCell
+                  label="Elapsed"
+                  value={formatDuration(activeSegment.effort.stats.elapsedSeconds)}
+                />
+                <SegmentPreviewCell
+                  label="Avg speed"
+                  value={formatSpeed(activeSegment.effort.stats.averageSpeedMetersPerSecond)}
+                />
+                <SegmentPreviewCell
+                  label="Heart rate"
+                  value={formatBpm(activeSegment.effort.stats.averageHeartRateBpm)}
+                />
+                <SegmentPreviewCell
+                  label="Climbing"
+                  value={`${formatElevation(activeSegment.effort.stats.elevationGainMeters)} m`}
+                />
+                <SegmentPreviewCell
+                  label="Confidence"
+                  value={`${Math.round(activeSegment.effort.confidence * 100)}%`}
+                />
+              </div>
+            </div>
+          ) : null}
+
+          {!segmentMode && showSegments && segments.length > 0 ? (
+            <div className="absolute bottom-[112px] left-3 z-[2] flex max-w-[calc(100%-390px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:bottom-[190px] max-[900px]:max-w-none">
+              {segments.map(({ effort, segment }) => (
+                <button
+                  key={effort.id}
+                  type="button"
+                  className={segmentButtonClassName(effort.id === activeEffortId)}
+                  onClick={() => setActiveEffortId(effort.id)}
+                >
+                  {segment.name}
+                </button>
+              ))}
+            </div>
+          ) : null}
+          <ReplayMapControls replay={replay} hidden={segmentMode} />
+        </div>
       ) : (
         <MapEmptyState
           title="No GPS route"

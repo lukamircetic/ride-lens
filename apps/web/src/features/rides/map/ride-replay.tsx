@@ -1,8 +1,7 @@
 import type { ActivityDetailResponse } from "@ride-lens/api";
 import { cn } from "@ride-lens/ui/lib/utils";
-import NumberFlow, { type Format } from "@number-flow/react";
 import { CompassIcon, PauseIcon, PlayIcon, RotateCcwIcon } from "lucide-react";
-import { Liveline, type LivelinePoint } from "liveline";
+import type { LivelinePoint } from "liveline";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -20,8 +19,8 @@ import { addReplayLayers, updateReplayLayerData } from "./layers";
 
 type WeatherSummary = ActivityDetailResponse["weather"];
 
-type ReplayViewMode = "2d" | "3d";
 type ReplayCameraMode = "static" | "follow" | "rotate";
+const speedMultipliers = [8, 16, 32, 64, 128] as const;
 
 interface ReplaySample {
   readonly recordIndex: number;
@@ -34,7 +33,7 @@ interface ReplaySample {
   readonly altitudeMeters: number | null;
 }
 
-interface ReplayFrame {
+export interface ReplayFrame {
   readonly elapsedSeconds: number;
   readonly durationSeconds: number;
   readonly sampleIndex: number;
@@ -48,25 +47,15 @@ interface ReplayFrame {
   readonly altitudeMeters: number | null;
 }
 
-export function useRideReplay({
-  map,
-  records,
-  weather,
-}: {
-  readonly map: MapLibreMap | null;
-  readonly records: ReadonlyArray<ActivityRecord>;
-  readonly weather: WeatherSummary;
-}) {
+export function useRideReplay({ records }: { readonly records: ReadonlyArray<ActivityRecord> }) {
   const samples = useMemo(() => buildReplaySamples(records), [records]);
   const durationSeconds = samples.at(-1)?.elapsedSeconds ?? 0;
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [playing, setPlaying] = useState(false);
-  const [speedMultiplier, setSpeedMultiplier] = useState(8);
-  const [viewMode, setViewMode] = useState<ReplayViewMode>("2d");
+  const [speedMultiplier, setSpeedMultiplier] = useState(64);
   const [cameraMode, setCameraMode] = useState<ReplayCameraMode>("static");
   const animationFrameRef = useRef<number | null>(null);
   const lastTickRef = useRef<number | null>(null);
-  const lastCameraUpdateRef = useRef(0);
   const frame = useMemo(
     () => buildReplayFrame(samples, clamp(elapsedSeconds, 0, durationSeconds)),
     [elapsedSeconds, durationSeconds, samples],
@@ -113,47 +102,6 @@ export function useRideReplay({
     };
   }, [durationSeconds, playing, speedMultiplier]);
 
-  useEffect(() => {
-    if (!map) return;
-
-    addReplayLayers(map);
-    updateReplayLayerData(map, frame.trailCoordinates, frame.coordinate, frame.headingCoordinate);
-  }, [frame.coordinate, frame.headingCoordinate, frame.trailCoordinates, map]);
-
-  useEffect(() => {
-    if (!map || frame.coordinate === null) return;
-
-    const now = performance.now();
-    if (now - lastCameraUpdateRef.current < 160) return;
-    lastCameraUpdateRef.current = now;
-
-    if (viewMode === "3d") {
-      map.easeTo({
-        bearing: frame.headingDegrees === null ? map.getBearing() : frame.headingDegrees - 90,
-        center: [...frame.coordinate],
-        duration: 140,
-        pitch: 64,
-        zoom: Math.max(map.getZoom(), 15.2),
-      });
-      return;
-    }
-
-    if (cameraMode === "static") {
-      if (map.getPitch() !== 0) {
-        map.easeTo({ bearing: 0, duration: 260, pitch: 0 });
-      }
-      return;
-    }
-
-    map.easeTo({
-      bearing: cameraMode === "rotate" && frame.headingDegrees !== null ? frame.headingDegrees : 0,
-      center: [...frame.coordinate],
-      duration: 140,
-      pitch: 0,
-      zoom: Math.max(map.getZoom(), 14.5),
-    });
-  }, [cameraMode, frame.coordinate, frame.headingDegrees, map, viewMode]);
-
   const chartWindowSeconds = Math.max(30, durationSeconds || 30);
   const speedChart = useMemo(
     () =>
@@ -184,8 +132,6 @@ export function useRideReplay({
     progress: durationSeconds > 0 ? frame.elapsedSeconds / durationSeconds : 0,
     speedChart,
     speedMultiplier,
-    viewMode,
-    weather,
     reset: () => {
       setPlaying(false);
       setElapsedSeconds(0);
@@ -195,7 +141,6 @@ export function useRideReplay({
     },
     setCameraMode,
     setSpeedMultiplier,
-    setViewMode,
     togglePlaying: () => {
       if (durationSeconds <= 0) return;
       setPlaying((current) => {
@@ -207,6 +152,49 @@ export function useRideReplay({
   };
 
   return controls;
+}
+
+export type RideReplay = ReturnType<typeof useRideReplay>;
+
+export function useReplayMapEffects({
+  map,
+  replay,
+}: {
+  readonly map: MapLibreMap | null;
+  readonly replay: RideReplay;
+}) {
+  const lastCameraUpdateRef = useRef(0);
+  const { cameraMode, frame } = replay;
+
+  useEffect(() => {
+    if (!map) return;
+
+    addReplayLayers(map);
+    updateReplayLayerData(map, frame.trailCoordinates, frame.coordinate, frame.headingCoordinate);
+  }, [frame.coordinate, frame.headingCoordinate, frame.trailCoordinates, map]);
+
+  useEffect(() => {
+    if (!map || frame.coordinate === null) return;
+
+    const now = performance.now();
+    if (now - lastCameraUpdateRef.current < 160) return;
+    lastCameraUpdateRef.current = now;
+
+    if (cameraMode === "static") {
+      if (map.getPitch() !== 0 || map.getBearing() !== 0) {
+        map.easeTo({ bearing: 0, duration: 260, pitch: 0 });
+      }
+      return;
+    }
+
+    map.easeTo({
+      bearing: cameraMode === "rotate" && frame.headingDegrees !== null ? frame.headingDegrees : 0,
+      center: [...frame.coordinate],
+      duration: 140,
+      pitch: 0,
+      zoom: Math.max(map.getZoom(), 14.5),
+    });
+  }, [cameraMode, frame.coordinate, frame.headingDegrees, map]);
 }
 
 export function ReplayMapBadge({
@@ -236,60 +224,59 @@ export function ReplayMapBadge({
   );
 }
 
-export function ReplayControlPanel({
+export function ReplayMapControls({
   replay,
   hidden,
 }: {
-  readonly replay: ReturnType<typeof useRideReplay>;
+  readonly replay: RideReplay;
   readonly hidden: boolean;
 }) {
   if (!replay.hasReplay || hidden) return null;
 
   return (
-    <div className="mt-2.5 border border-ride-line bg-ride-abyss">
-      <div className="grid grid-cols-[minmax(260px,0.78fr)_minmax(360px,1.22fr)] gap-px bg-ride-line-soft max-[900px]:grid-cols-1">
-        <div className="bg-ride-abyss p-3">
-          <div className="mb-2.5 flex items-center justify-between gap-3">
-            <div>
-              <div className="font-ride text-[11px] font-bold uppercase text-ride-ink-muted">
+    <div className="absolute right-3 bottom-3 left-3 z-[2] grid grid-cols-[minmax(300px,0.72fr)_minmax(340px,1fr)] gap-px border border-ride-line bg-ride-line-soft shadow-[0_16px_38px_rgba(0,0,0,0.36)] max-[900px]:grid-cols-1">
+      <div className="bg-[#10161c]/96 p-2.5 backdrop-blur">
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            className={iconButtonClassName(true)}
+            aria-label={replay.playing ? "Pause replay" : "Play replay"}
+            onClick={replay.togglePlaying}
+          >
+            {replay.playing ? <PauseIcon /> : <PlayIcon />}
+          </button>
+          <button
+            type="button"
+            className={iconButtonClassName(false)}
+            aria-label="Reset replay"
+            onClick={replay.reset}
+          >
+            <RotateCcwIcon />
+          </button>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline justify-between gap-2">
+              <span className="font-ride text-[10px] font-bold uppercase text-ride-ink-muted">
                 Replay
-              </div>
-              <div className="mt-0.5 font-ride-mono text-[11px] text-ride-ink-dim">
+              </span>
+              <span className="font-ride-mono text-[10px] text-ride-ink-dim">
                 {formatDuration(replay.elapsedSeconds)} / {formatDuration(replay.durationSeconds)}
-              </div>
+              </span>
             </div>
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                className={iconButtonClassName(true)}
-                aria-label={replay.playing ? "Pause replay" : "Play replay"}
-                onClick={replay.togglePlaying}
-              >
-                {replay.playing ? <PauseIcon /> : <PlayIcon />}
-              </button>
-              <button
-                type="button"
-                className={iconButtonClassName(false)}
-                aria-label="Reset replay"
-                onClick={replay.reset}
-              >
-                <RotateCcwIcon />
-              </button>
-            </div>
+            <input
+              className="mt-1 block w-full accent-ride-amber"
+              type="range"
+              min={0}
+              max={1000}
+              value={Math.round(replay.progress * 1000)}
+              aria-label="Replay position"
+              onChange={(event) => replay.seek(Number(event.currentTarget.value) / 1000)}
+            />
           </div>
+        </div>
 
-          <input
-            className="w-full accent-ride-amber"
-            type="range"
-            min={0}
-            max={1000}
-            value={Math.round(replay.progress * 1000)}
-            aria-label="Replay position"
-            onChange={(event) => replay.seek(Number(event.currentTarget.value) / 1000)}
-          />
-
-          <div className="mt-3 grid grid-cols-3 gap-px border border-ride-line-soft bg-ride-line-soft">
-            {[1, 4, 8, 16, 32].map((speed) => (
+        <div className="mt-2 grid gap-px bg-ride-line-soft">
+          <div className="grid grid-cols-5 gap-px">
+            {speedMultipliers.map((speed) => (
               <button
                 key={speed}
                 type="button"
@@ -300,8 +287,7 @@ export function ReplayControlPanel({
               </button>
             ))}
           </div>
-
-          <div className="mt-2 grid grid-cols-3 gap-px border border-ride-line-soft bg-ride-line-soft">
+          <div className="grid grid-cols-3 gap-px">
             <button
               type="button"
               className={replayButtonClassName(replay.cameraMode === "static")}
@@ -324,125 +310,17 @@ export function ReplayControlPanel({
               Rotate
             </button>
           </div>
-
-          <div className="mt-2 grid grid-cols-2 gap-px border border-ride-line-soft bg-ride-line-soft">
-            <button
-              type="button"
-              className={replayButtonClassName(replay.viewMode === "2d")}
-              onClick={() => replay.setViewMode("2d")}
-            >
-              2D
-            </button>
-            <button
-              type="button"
-              className={replayButtonClassName(replay.viewMode === "3d")}
-              onClick={() => replay.setViewMode("3d")}
-            >
-              3D side
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-3 gap-px bg-ride-line-soft max-[900px]:grid-cols-1">
-          <ReplayMetricCard
-            label="Speed"
-            color="#ffc72c"
-            value={replay.speedChart.value}
-            data={replay.speedChart.data}
-            chartWindowSeconds={replay.chartWindowSeconds}
-            format={(value) => `${value.toFixed(1)} km/h`}
-            numberFormat={{ minimumFractionDigits: 1, maximumFractionDigits: 1 }}
-            suffix=" km/h"
-          />
-          <ReplayMetricCard
-            label="Elevation"
-            color="#78b7c8"
-            value={replay.elevationChart.value}
-            data={replay.elevationChart.data}
-            chartWindowSeconds={replay.chartWindowSeconds}
-            format={(value) => `${Math.round(value)} m`}
-            numberFormat={{ maximumFractionDigits: 0 }}
-            suffix=" m"
-          />
-          <ReplayMetricCard
-            label="Heart rate"
-            color="#ff5a5f"
-            value={replay.heartRateChart.value}
-            data={replay.heartRateChart.data}
-            chartWindowSeconds={replay.chartWindowSeconds}
-            format={(value) => `${Math.round(value)} bpm`}
-            numberFormat={{ maximumFractionDigits: 0 }}
-            suffix=" bpm"
-          />
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-px border-t border-ride-line bg-ride-line-soft max-[900px]:grid-cols-2">
+
+      <div className="grid grid-cols-4 gap-px bg-ride-line-soft max-[900px]:grid-cols-2">
         <ReplayStaticCell label="Distance" value={formatDistance(replay.frame.distanceMeters)} />
+        <ReplayStaticCell label="Speed" value={formatSpeed(replay.frame.speedMetersPerSecond)} />
         <ReplayStaticCell
-          label="Current speed"
-          value={formatSpeed(replay.frame.speedMetersPerSecond)}
-        />
-        <ReplayStaticCell label="Heart rate" value={formatBpm(replay.frame.heartRateBpm)} />
-        <ReplayStaticCell
-          label="Climbing"
+          label="Elevation"
           value={`${formatElevation(replay.frame.altitudeMeters)} m`}
         />
-      </div>
-    </div>
-  );
-}
-
-function ReplayMetricCard({
-  label,
-  color,
-  value,
-  data,
-  chartWindowSeconds,
-  format,
-  numberFormat,
-  suffix,
-}: {
-  readonly label: string;
-  readonly color: string;
-  readonly value: number | null;
-  readonly data: ReadonlyArray<LivelinePoint>;
-  readonly chartWindowSeconds: number;
-  readonly format: (value: number) => string;
-  readonly numberFormat: Format;
-  readonly suffix: string;
-}) {
-  const displayValue = value ?? 0;
-
-  return (
-    <div className="min-w-0 bg-ride-abyss p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <span className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim">{label}</span>
-        <b className="font-ride-mono text-[18px] font-semibold text-ride-ink">
-          {value === null ? (
-            "n/a"
-          ) : (
-            <NumberFlow value={displayValue} format={numberFormat} suffix={suffix} />
-          )}
-        </b>
-      </div>
-      <div className="mt-2 h-[92px] min-w-0">
-        <Liveline
-          badge={false}
-          color={color}
-          data={[...data]}
-          emptyText="No data"
-          exaggerate
-          fill
-          formatValue={format}
-          grid={false}
-          lineWidth={2}
-          momentum={false}
-          pulse={false}
-          scrub={false}
-          theme="dark"
-          value={displayValue}
-          window={chartWindowSeconds}
-        />
+        <ReplayStaticCell label="Heart rate" value={formatBpm(replay.frame.heartRateBpm)} />
       </div>
     </div>
   );
@@ -450,9 +328,9 @@ function ReplayMetricCard({
 
 function ReplayStaticCell({ label, value }: { readonly label: string; readonly value: string }) {
   return (
-    <div className="min-w-0 bg-ride-abyss px-3 py-2">
+    <div className="min-w-0 bg-[#10161c]/96 px-3 py-2 backdrop-blur">
       <div className="font-ride text-[9px] font-bold uppercase text-ride-ink-dim">{label}</div>
-      <div className="mt-0.5 truncate font-ride-mono text-[12px] text-ride-ink-muted">{value}</div>
+      <div className="mt-0.5 truncate font-ride-mono text-[12px] text-ride-ink">{value}</div>
     </div>
   );
 }
