@@ -1,3 +1,4 @@
+import { Button } from "@ride-lens/ui/components/button";
 import { Link } from "@tanstack/react-router";
 import { FileUpIcon } from "lucide-react";
 
@@ -38,15 +39,16 @@ export function AppHeader({
           </Link>
         </nav>
         {onUpload ? (
-          <button
+          <Button
             type="button"
+            variant="unstyled"
             className={uploadButtonClassName}
             disabled={uploading}
             onClick={onUpload}
           >
             <FileUpIcon />
             {uploadLabel}
-          </button>
+          </Button>
         ) : null}
       </div>
     </header>

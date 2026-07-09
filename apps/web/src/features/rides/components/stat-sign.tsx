@@ -1,3 +1,4 @@
+import { Button } from "@ride-lens/ui/components/button";
 import { cn } from "@ride-lens/ui/lib/utils";
 
 export function GantryRow({
@@ -49,11 +50,11 @@ export function Sign({
 
   if (onClick) {
     return (
-      <button type="button" className={className} onClick={onClick}>
+      <Button type="button" variant="unstyled" className={className} onClick={onClick}>
         <div className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim">{label}</div>
         <div className={valueClassName}>{value}</div>
         {cap ? <div className="mt-2.5 font-ride text-[11px] text-ride-ink-dim">{cap}</div> : null}
-      </button>
+      </Button>
     );
   }
 

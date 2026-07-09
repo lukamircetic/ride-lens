@@ -1,3 +1,4 @@
+import { Button } from "@ride-lens/ui/components/button";
 import { cn } from "@ride-lens/ui/lib/utils";
 import { PauseIcon, PlayIcon, RotateCcwIcon, XIcon } from "lucide-react";
 
@@ -15,38 +16,41 @@ export function ReplayMapControls({
 
   if (!replay.enabled) {
     return (
-      <button
+      <Button
         type="button"
-        className="absolute bottom-[26px] left-[214px] z-[2] inline-flex h-10 items-center gap-2 border border-ride-line bg-[#10161c]/96 px-3 font-ride text-[10px] font-bold uppercase text-ride-ink shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur transition-colors hover:border-ride-amber hover:text-ride-amber max-[520px]:bottom-[76px] max-[520px]:left-3"
+        variant="unstyled"
+        className="absolute right-3 bottom-[50px] z-[2] inline-flex h-10 items-center gap-2 border border-ride-line bg-[#10161c]/96 px-3 font-ride text-[10px] font-bold uppercase text-ride-ink shadow-[0_12px_28px_rgba(0,0,0,0.28)] backdrop-blur transition-colors hover:border-ride-amber hover:text-ride-amber"
         aria-label="Show replay controls"
         onClick={() => replay.setEnabled(true)}
       >
         <PlayIcon className="size-[15px] text-ride-amber" />
         Replay
-      </button>
+      </Button>
     );
   }
 
   return (
-    <div className="absolute bottom-3 left-3 z-[2] w-[min(330px,calc(100%-24px))] border border-ride-line bg-ride-line-soft shadow-[0_16px_38px_rgba(0,0,0,0.36)]">
+    <div className="absolute right-3 bottom-3 z-[2] w-[min(330px,calc(100%-24px))] border border-ride-line bg-ride-line-soft shadow-[0_16px_38px_rgba(0,0,0,0.36)]">
       <div className="bg-[#10161c]/96 p-2.5 backdrop-blur">
         <div className="flex items-center gap-2.5">
-          <button
+          <Button
             type="button"
+            variant="unstyled"
             className={iconButtonClassName(true)}
             aria-label={replay.playing ? "Pause replay" : "Play replay"}
             onClick={replay.togglePlaying}
           >
             {replay.playing ? <PauseIcon /> : <PlayIcon />}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="unstyled"
             className={iconButtonClassName(false)}
             aria-label="Reset replay"
             onClick={replay.reset}
           >
             <RotateCcwIcon />
-          </button>
+          </Button>
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline justify-between gap-2">
               <span className="font-ride text-[10px] font-bold uppercase text-ride-ink-muted">
@@ -66,44 +70,48 @@ export function ReplayMapControls({
               onChange={(event) => replay.seek(Number(event.currentTarget.value) / 1000)}
             />
           </div>
-          <button
+          <Button
             type="button"
+            variant="unstyled"
             className={iconButtonClassName(false)}
             aria-label="Hide replay controls"
             onClick={() => replay.setEnabled(false)}
           >
             <XIcon />
-          </button>
+          </Button>
         </div>
 
         <div className="mt-2 grid gap-px bg-ride-line-soft">
           <div className="grid grid-cols-3 gap-px">
             {REPLAY_SPEED_MULTIPLIERS.map((speed) => (
-              <button
+              <Button
                 key={speed}
                 type="button"
+                variant="unstyled"
                 className={replayButtonClassName(replay.speedMultiplier === speed)}
                 onClick={() => replay.setSpeedMultiplier(speed)}
               >
                 {speed}x
-              </button>
+              </Button>
             ))}
           </div>
           <div className="grid grid-cols-2 gap-px">
-            <button
+            <Button
               type="button"
+              variant="unstyled"
               className={replayButtonClassName(replay.cameraMode === "static")}
               onClick={() => replay.setCameraMode("static")}
             >
               Static
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="unstyled"
               className={replayButtonClassName(replay.cameraMode === "follow")}
               onClick={() => replay.setCameraMode("follow")}
             >
               Follow
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -115,7 +123,7 @@ function iconButtonClassName(active: boolean): string {
   return cn(
     "grid size-8 cursor-pointer place-items-center border transition-colors disabled:cursor-default disabled:opacity-50 [&_svg]:size-[15px]",
     active
-      ? "border-ride-amber bg-ride-amber text-[#15120a]"
+      ? "border-[#7f6c2f] bg-[#2c2a20] text-ride-ink hover:bg-[#363120]"
       : "border-ride-line bg-[#12171d] text-ride-ink hover:border-ride-amber hover:text-ride-amber",
   );
 }
@@ -123,6 +131,8 @@ function iconButtonClassName(active: boolean): string {
 function replayButtonClassName(active: boolean): string {
   return cn(
     "min-h-8 cursor-pointer bg-ride-abyss px-2 py-1.5 font-ride text-[10px] font-bold uppercase transition-colors",
-    active ? "text-ride-amber" : "text-ride-ink-dim hover:text-ride-ink",
+    active
+      ? "bg-[#2c2a20] text-ride-ink hover:bg-[#363120]"
+      : "text-ride-ink-dim hover:text-ride-ink",
   );
 }

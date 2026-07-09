@@ -1,3 +1,4 @@
+import { Button } from "@ride-lens/ui/components/button";
 import { cn } from "@ride-lens/ui/lib/utils";
 
 import { RIDE_LOG_PAGE_SIZE } from "../constants";
@@ -52,29 +53,31 @@ export function RideLog({
       <div className={sectionHeaderClassName}>
         <div className={sectionTitleClassName}>Ride log</div>
         <div className="flex items-center gap-2">
-          <button
+          <Button
             type="button"
+            variant="unstyled"
             className={pageButtonClassName}
             disabled={page === 0}
             onClick={() => onPageChange((currentPage) => Math.max(0, currentPage - 1))}
             aria-label="Previous rides"
           >
             ‹
-          </button>
+          </Button>
           <div className={sectionSubClassName}>
             {loading
               ? "loading"
               : `${rideLogStartIndex}-${rideLogEndIndex} of ${activities.length}`}
           </div>
-          <button
+          <Button
             type="button"
+            variant="unstyled"
             className={pageButtonClassName}
             disabled={page >= pageCount - 1}
             onClick={() => onPageChange((currentPage) => Math.min(pageCount - 1, currentPage + 1))}
             aria-label="Next rides"
           >
             ›
-          </button>
+          </Button>
         </div>
       </div>
       <div className="h-[456px]">

@@ -1,3 +1,4 @@
+import { Button } from "@ride-lens/ui/components/button";
 import { FileUpIcon } from "lucide-react";
 
 export function EmptyState({ onUpload }: { readonly onUpload: () => void }) {
@@ -8,14 +9,15 @@ export function EmptyState({ onUpload }: { readonly onUpload: () => void }) {
       <div className="mx-auto mt-2 max-w-[36ch] font-ride-mono text-[13px] text-ride-ink-dim">
         Upload a FIT activity to start building the dashboard.
       </div>
-      <button
+      <Button
         type="button"
+        variant="unstyled"
         className="mt-5 inline-flex cursor-pointer items-center gap-2 border border-ride-line bg-ride-night-2 px-3.5 py-[9px] font-ride text-xs font-bold uppercase text-ride-ink transition-colors hover:border-ride-amber hover:text-ride-amber [&_svg]:size-[15px]"
         onClick={onUpload}
       >
         <FileUpIcon />
         Upload FIT
-      </button>
+      </Button>
     </div>
   );
 }

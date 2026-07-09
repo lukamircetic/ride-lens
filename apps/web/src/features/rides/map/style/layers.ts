@@ -12,6 +12,9 @@ import {
 } from "../route/geojson";
 import type { GeoJsonData, MapLayerSpecification, MapSourceSpecification } from "./map-types";
 
+const ACTIVE_SEGMENT_CASING_COLOR = "#0b5138";
+const ACTIVE_SEGMENT_LINE_COLOR = "#48e394";
+
 export function addSelectedRouteLayers(map: MapLibreMap) {
   if (map.getSource("selected-route-segments")) return;
 
@@ -99,14 +102,30 @@ export function addSegmentOverlayLayers(map: MapLibreMap) {
   } as MapSourceSpecification);
 
   map.addLayer({
+    id: "ride-segment-ranges-casing",
+    type: "line",
+    source: "ride-segment-ranges",
+    layout: { "line-cap": "round", "line-join": "round" },
+    paint: {
+      "line-color": ACTIVE_SEGMENT_CASING_COLOR,
+      "line-opacity": ["case", ["boolean", ["get", "active"], false], 0.98, 0],
+      "line-width": ["case", ["boolean", ["get", "active"], false], 11, 0],
+    },
+  } as MapLayerSpecification);
+  map.addLayer({
     id: "ride-segment-ranges",
     type: "line",
     source: "ride-segment-ranges",
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
-      "line-color": ["case", ["boolean", ["get", "active"], false], "#f2efe6", "#78b7c8"],
+      "line-color": [
+        "case",
+        ["boolean", ["get", "active"], false],
+        ACTIVE_SEGMENT_LINE_COLOR,
+        "#78b7c8",
+      ],
       "line-opacity": ["case", ["boolean", ["get", "active"], false], 1, 0.82],
-      "line-width": ["case", ["boolean", ["get", "active"], false], 7, 4],
+      "line-width": ["case", ["boolean", ["get", "active"], false], 6.5, 4],
     },
   } as MapLayerSpecification);
   map.addLayer({

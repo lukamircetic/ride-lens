@@ -1,3 +1,5 @@
+import { Button } from "@ride-lens/ui/components/button";
+import { ChevronDownIcon, CirclePlusIcon } from "lucide-react";
 import maplibregl, { type Map as MapLibreMap, type MapMouseEvent } from "maplibre-gl";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -263,14 +265,28 @@ export function RouteMap({
     });
   };
 
-  const handleEditSegment = (segment: ActivitySegment) => {
-    setEditingSegmentId(segment.segment.id);
-    setDraftName(segment.segment.name);
-    setDraftStartRecordIndex(segment.segment.startRecordIndex);
-    setDraftEndRecordIndex(segment.segment.endRecordIndex);
-    setActiveEffortId(segment.effort.id);
-    setShowSegments(true);
-    setSegmentMode(true);
+  const handleSelectSegment = (segment: ActivitySegment) => {
+    const nextActiveEffortId = activeEffortId === segment.effort.id ? null : segment.effort.id;
+
+    setActiveEffortId(nextActiveEffortId);
+
+    const map = mapRef.current;
+    if (!map || !loadedRef.current) return;
+
+    if (nextActiveEffortId === null) {
+      fitMapToPoints(map, points, { padding: 48 });
+      return;
+    }
+
+    fitMapToPoints(
+      map,
+      routePointsForRecordRange(
+        points,
+        segment.effort.startRecordIndex,
+        segment.effort.endRecordIndex,
+      ),
+      { padding: 96 },
+    );
   };
 
   const handleSaveDraft = async () => {
@@ -314,44 +330,71 @@ export function RouteMap({
               : "border-[#343a43]",
           ].join(" ")}
         >
-          <div className="absolute top-3 left-3 z-[2] flex max-w-[calc(100%-88px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:max-w-none">
-            <div className="flex flex-wrap gap-1.5" aria-label="Route metric">
-              <MapMetricButton
-                metric="speed"
-                activeMetric={metric}
-                available={availableMetrics.speed}
-                onSelect={setMetric}
-              />
-              <MapMetricButton
-                metric="heartRate"
-                activeMetric={metric}
-                available={availableMetrics.heartRate}
-                onSelect={setMetric}
-              />
-              <MapMetricButton
-                metric="elevation"
-                activeMetric={metric}
-                available={availableMetrics.elevation}
-                onSelect={setMetric}
-              />
-            </div>
-            <button
-              type="button"
-              className={segmentButtonClassName(segmentMode)}
-              disabled={creatingSegment}
-              onClick={handleToggleSegmentMode}
-            >
-              {segmentMode ? "Cancel segment" : "Create segment"}
-            </button>
-            {segments.length > 0 ? (
-              <button
+          <div className="absolute top-3 left-3 z-[2] flex max-w-[calc(100%-88px)] flex-col items-start gap-1.5 max-[900px]:right-3 max-[900px]:max-w-none">
+            <div className="flex flex-col items-start gap-1.5">
+              <Button
                 type="button"
-                className={segmentButtonClassName(showSegments)}
-                onClick={() => setShowSegments((current) => !current)}
+                variant="unstyled"
+                className={segmentButtonClassName(segmentMode)}
+                disabled={creatingSegment}
+                onClick={handleToggleSegmentMode}
               >
-                Segments {segments.length}
-              </button>
-            ) : null}
+                {segmentMode ? "Cancel segment" : "Create segment"}
+                {segmentMode ? null : <CirclePlusIcon />}
+              </Button>
+              {segments.length > 0 ? (
+                <Button
+                  type="button"
+                  variant="unstyled"
+                  className={segmentsToggleClassName(showSegments)}
+                  aria-expanded={showSegments}
+                  onClick={() => setShowSegments((current) => !current)}
+                >
+                  <span>Segments {segments.length}</span>
+                  <ChevronDownIcon
+                    className={[
+                      "size-[13px] transition-transform",
+                      showSegments ? "rotate-180" : "",
+                    ].join(" ")}
+                  />
+                </Button>
+              ) : null}
+              {!segmentMode && showSegments && segments.length > 0 ? (
+                <div className="flex w-[min(240px,calc(100vw-120px))] flex-col gap-1.5">
+                  {segments.map(({ effort, segment }) => (
+                    <Button
+                      key={effort.id}
+                      type="button"
+                      variant="unstyled"
+                      className={segmentListButtonClassName(effort.id === activeEffortId)}
+                      onClick={() => handleSelectSegment({ effort, segment })}
+                    >
+                      {segment.name}
+                    </Button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+          <div className={routeMetricControlsClassName()} aria-label="Route metric">
+            <MapMetricButton
+              metric="speed"
+              activeMetric={metric}
+              available={availableMetrics.speed}
+              onSelect={setMetric}
+            />
+            <MapMetricButton
+              metric="heartRate"
+              activeMetric={metric}
+              available={availableMetrics.heartRate}
+              onSelect={setMetric}
+            />
+            <MapMetricButton
+              metric="elevation"
+              activeMetric={metric}
+              available={availableMetrics.elevation}
+              onSelect={setMetric}
+            />
           </div>
           <div className="!absolute !inset-0" ref={containerRef} />
           {replay.enabled && !segmentMode ? null : <MapLegend metric={metric} points={points} />}
@@ -404,15 +447,17 @@ export function RouteMap({
                 <div className="mt-2 text-xs text-[#e6a59d]">{segmentError}</div>
               ) : null}
               <div className="mt-2 flex justify-end gap-1.5">
-                <button
+                <Button
                   type="button"
+                  variant="unstyled"
                   className={segmentButtonClassName(false)}
                   onClick={resetDraft}
                 >
                   Clear
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="unstyled"
                   className={segmentButtonClassName(true)}
                   disabled={!canSaveDraft || creatingSegment}
                   onClick={() => void handleSaveDraft()}
@@ -422,79 +467,51 @@ export function RouteMap({
                     : editingSegmentId === null
                       ? "Save segment"
                       : "Update segment"}
-                </button>
+                </Button>
               </div>
             </div>
           ) : null}
 
           {!segmentMode && showSegments && activeSegment ? (
-            <div className="absolute right-3 bottom-[112px] z-[2] w-[min(340px,calc(100%-24px))] border border-ride-line bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur max-[900px]:bottom-[190px]">
-              <div className="mb-2 flex items-start justify-between gap-3">
+            <div className="absolute top-3 left-[264px] z-[2] w-[min(560px,calc(100%-352px))] border border-ride-line bg-[#12171d]/95 p-2 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur max-[720px]:top-[132px] max-[720px]:left-3 max-[720px]:w-[calc(100%-24px)]">
+              <div className="mb-1.5 flex items-start justify-between gap-3">
                 <div className="min-w-0 font-ride text-[11px] font-bold uppercase text-ride-ink">
                   {activeSegment.segment.name}
                 </div>
-                <div className="flex shrink-0 gap-2">
-                  {activeSegment.effort.source === "source" ? (
-                    <button
-                      type="button"
-                      className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim hover:text-ride-amber"
-                      onClick={() => handleEditSegment(activeSegment)}
-                    >
-                      Edit
-                    </button>
-                  ) : null}
-                  <button
-                    type="button"
-                    className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim hover:text-ride-amber"
-                    onClick={() => setActiveEffortId(null)}
-                  >
-                    Close
-                  </button>
-                </div>
+                <Button
+                  type="button"
+                  variant="unstyled"
+                  className="font-ride text-[10px] font-bold uppercase text-ride-ink-dim hover:text-ride-amber"
+                  onClick={() => setActiveEffortId(null)}
+                >
+                  Close
+                </Button>
               </div>
-              <div className="grid grid-cols-3 gap-px border border-ride-line bg-ride-line-soft text-xs">
-                <SegmentPreviewCell
+              <div className="grid grid-cols-5 gap-px border border-ride-line bg-ride-line-soft text-xs max-[720px]:grid-cols-2">
+                <SelectedSegmentCell
                   label="Distance"
                   value={formatDistance(activeSegment.effort.stats.distanceMeters)}
                 />
-                <SegmentPreviewCell
+                <SelectedSegmentCell
                   label="Elapsed"
                   value={formatDuration(activeSegment.effort.stats.elapsedSeconds)}
                 />
-                <SegmentPreviewCell
+                <SelectedSegmentCell
                   label="Avg speed"
                   value={formatSpeed(activeSegment.effort.stats.averageSpeedMetersPerSecond)}
                 />
-                <SegmentPreviewCell
+                <SelectedSegmentCell
                   label="Heart rate"
                   value={formatBpm(activeSegment.effort.stats.averageHeartRateBpm)}
                 />
-                <SegmentPreviewCell
+                <SelectedSegmentCell
                   label="Climbing"
                   value={`${formatElevation(activeSegment.effort.stats.elevationGainMeters)} m`}
-                />
-                <SegmentPreviewCell
-                  label="Confidence"
-                  value={`${Math.round(activeSegment.effort.confidence * 100)}%`}
                 />
               </div>
             </div>
           ) : null}
 
-          {!segmentMode && showSegments && segments.length > 0 ? (
-            <div className="absolute bottom-[112px] left-3 z-[2] flex max-w-[calc(100%-390px)] flex-wrap gap-1.5 max-[900px]:right-3 max-[900px]:bottom-[190px] max-[900px]:max-w-none">
-              {segments.map(({ effort, segment }) => (
-                <button
-                  key={effort.id}
-                  type="button"
-                  className={segmentButtonClassName(effort.id === activeEffortId)}
-                  onClick={() => setActiveEffortId(effort.id)}
-                >
-                  {segment.name}
-                </button>
-              ))}
-            </div>
-          ) : null}
           <ReplayMapControls replay={replay} hidden={segmentMode} />
         </div>
       ) : (
@@ -516,13 +533,55 @@ function SegmentPreviewCell({ label, value }: { readonly label: string; readonly
   );
 }
 
+function SelectedSegmentCell({ label, value }: { readonly label: string; readonly value: string }) {
+  return (
+    <div className="min-w-0 bg-ride-abyss px-2 py-1.5">
+      <div className="font-ride text-[8px] font-bold uppercase text-ride-ink-dim">{label}</div>
+      <div className="mt-0.5 truncate font-ride-mono text-[11px] text-ride-ink">{value}</div>
+    </div>
+  );
+}
+
+function routeMetricControlsClassName(): string {
+  return "absolute bottom-[96px] left-3 z-[2] flex max-w-[calc(100%-24px)] flex-col items-start gap-1.5";
+}
+
 function segmentButtonClassName(active: boolean): string {
   return [
-    "border px-2.5 py-1.5 font-ride text-[10px] font-bold uppercase transition-colors disabled:cursor-default disabled:opacity-50",
+    "box-border inline-flex h-7 w-[148px] items-center justify-center gap-1.5 overflow-hidden border px-2.5 py-0 font-ride text-[10px] leading-[1] font-bold uppercase transition-colors disabled:cursor-default disabled:opacity-50 [&_svg]:size-[12px] [&_svg]:translate-y-0",
     active
-      ? "border-ride-amber bg-ride-amber text-[#15120a]"
+      ? "border-[#7f6c2f] bg-[#2c2a20] text-ride-ink hover:bg-[#363120]"
       : "border-ride-line bg-[#12171d]/90 text-ride-ink hover:border-ride-amber hover:text-ride-amber",
   ].join(" ");
+}
+
+function segmentsToggleClassName(active: boolean): string {
+  return [
+    "box-border flex h-7 w-[148px] items-center justify-between gap-2 overflow-hidden border px-2.5 py-0 font-ride text-[10px] leading-none font-bold uppercase backdrop-blur-lg transition-colors",
+    active
+      ? "border-ride-amber bg-ride-abyss/85 text-ride-ink hover:border-ride-amber-bright hover:bg-ride-amber/15"
+      : "border-ride-line bg-[#12171d]/90 text-ride-ink hover:border-ride-amber hover:text-ride-amber",
+  ].join(" ");
+}
+
+function segmentListButtonClassName(active: boolean): string {
+  return [
+    "min-h-7 w-full truncate border px-2.5 py-1.5 text-left font-ride text-[10px] font-bold uppercase shadow-[0_10px_22px_rgba(0,0,0,0.24)] backdrop-blur transition-colors",
+    active
+      ? "border-[#7f6c2f] bg-[#2c2a20] text-ride-ink"
+      : "border-ride-line bg-[#12171d]/92 text-ride-ink hover:border-ride-amber hover:text-ride-amber",
+  ].join(" ");
+}
+
+function routePointsForRecordRange(
+  points: ReadonlyArray<ActivityRoutePoint>,
+  startRecordIndex: number,
+  endRecordIndex: number,
+): ReadonlyArray<ActivityRoutePoint> {
+  const start = Math.min(startRecordIndex, endRecordIndex);
+  const end = Math.max(startRecordIndex, endRecordIndex);
+
+  return points.filter((point) => point.recordIndex >= start && point.recordIndex <= end);
 }
 
 function computeDraftSegmentStats(
