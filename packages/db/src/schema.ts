@@ -9,10 +9,15 @@ import {
   uniqueIndex,
 } from "drizzle-orm/sqlite-core";
 
+export * from "./auth-schema";
+
+export const LEGACY_OWNER_USER_ID = "legacy-local-user";
+
 export const fit_files = sqliteTable(
   "fit_files",
   {
     id: text().primaryKey(),
+    owner_user_id: text().notNull().default(LEGACY_OWNER_USER_ID),
     source_hash: text().notNull(),
     original_filename: text().notNull(),
     relative_path: text().notNull(),
@@ -20,8 +25,9 @@ export const fit_files = sqliteTable(
     time_created: integer().notNull(),
   },
   (table) => [
-    uniqueIndex("fit_files_source_hash_idx").on(table.source_hash),
+    uniqueIndex("fit_files_owner_source_hash_idx").on(table.owner_user_id, table.source_hash),
     uniqueIndex("fit_files_relative_path_idx").on(table.relative_path),
+    index("fit_files_owner_idx").on(table.owner_user_id),
   ],
 );
 
@@ -29,6 +35,7 @@ export const activities = sqliteTable(
   "activities",
   {
     id: text().primaryKey(),
+    owner_user_id: text().notNull().default(LEGACY_OWNER_USER_ID),
     fit_file_id: text()
       .notNull()
       .references(() => fit_files.id, { onDelete: "restrict" }),
@@ -61,6 +68,7 @@ export const activities = sqliteTable(
   },
   (table) => [
     uniqueIndex("activities_fit_file_id_idx").on(table.fit_file_id),
+    index("activities_owner_start_time_idx").on(table.owner_user_id, table.start_time),
     index("activities_start_time_idx").on(table.start_time),
     index("activities_sport_start_time_idx").on(table.sport, table.start_time),
   ],

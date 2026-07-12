@@ -1,14 +1,16 @@
 import * as BunHttpServer from "@effect/platform-bun/BunHttpServer";
-import { RideLensApi } from "@ride-lens/api";
+import { CurrentUser, RideLensApi } from "@ride-lens/api";
 import { layer as DatabaseLayer, type DatabaseConfig } from "@ride-lens/db";
 import { Effect, Layer } from "effect";
 import { HttpRouter } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 import { Activities } from "./activities";
+import { AuthMiddlewareLayer, AuthRoutes, makeAuthServiceLayer, type AuthConfig } from "./auth";
 import { Segments } from "./segments";
 import type { WeatherConfig } from "./weather";
 
 export interface AppConfig extends DatabaseConfig {
+  readonly auth?: AuthConfig | undefined;
   readonly weather?: WeatherConfig | undefined;
 }
 
@@ -22,11 +24,13 @@ export const ActivityImportHandlers = HttpApiBuilder.group(
   (handlers) =>
     handlers.handle("importFit", ({ payload }) =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const activities = yield* Activities;
 
         return yield* activities.importFit({
           filePath: payload.file.path,
           filename: payload.file.name,
+          ownerUserId: currentUser.id,
         });
       }).pipe(
         Effect.catchTags({
@@ -42,9 +46,10 @@ export const ActivityHandlers = HttpApiBuilder.group(RideLensApi, "activities", 
   handlers
     .handle("listActivities", () =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const activities = yield* Activities;
 
-        return yield* activities.list();
+        return yield* activities.list(currentUser.id);
       }).pipe(
         Effect.catchTag("ActivityQueryError", () =>
           Effect.fail(new HttpApiError.InternalServerError({})),
@@ -53,9 +58,10 @@ export const ActivityHandlers = HttpApiBuilder.group(RideLensApi, "activities", 
     )
     .handle("listActivityRoutes", () =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const activities = yield* Activities;
 
-        return yield* activities.listRoutes();
+        return yield* activities.listRoutes(currentUser.id);
       }).pipe(
         Effect.catchTag("ActivityQueryError", () =>
           Effect.fail(new HttpApiError.InternalServerError({})),
@@ -64,9 +70,10 @@ export const ActivityHandlers = HttpApiBuilder.group(RideLensApi, "activities", 
     )
     .handle("getActivity", ({ params }) =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const activities = yield* Activities;
 
-        return yield* activities.getDetail(params.id);
+        return yield* activities.getDetail(currentUser.id, params.id);
       }).pipe(
         Effect.catchTags({
           ActivityNotFoundError: () => Effect.fail(new HttpApiError.NotFound({})),
@@ -80,9 +87,10 @@ export const SegmentHandlers = HttpApiBuilder.group(RideLensApi, "segments", (ha
   handlers
     .handle("listSegments", () =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const segments = yield* Segments;
 
-        return yield* segments.list();
+        return yield* segments.list(currentUser.id);
       }).pipe(
         Effect.catchTag("SegmentQueryError", () =>
           Effect.fail(new HttpApiError.InternalServerError({})),
@@ -91,9 +99,10 @@ export const SegmentHandlers = HttpApiBuilder.group(RideLensApi, "segments", (ha
     )
     .handle("createSegment", ({ payload }) =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const segments = yield* Segments;
 
-        return yield* segments.create(payload);
+        return yield* segments.create(currentUser.id, payload);
       }).pipe(
         Effect.catchTags({
           SegmentValidationError: () => Effect.fail(new HttpApiError.BadRequest({})),
@@ -103,9 +112,10 @@ export const SegmentHandlers = HttpApiBuilder.group(RideLensApi, "segments", (ha
     )
     .handle("updateSegment", ({ params, payload }) =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const segments = yield* Segments;
 
-        return yield* segments.update(params.id, payload);
+        return yield* segments.update(currentUser.id, params.id, payload);
       }).pipe(
         Effect.catchTags({
           SegmentValidationError: () => Effect.fail(new HttpApiError.BadRequest({})),
@@ -116,9 +126,10 @@ export const SegmentHandlers = HttpApiBuilder.group(RideLensApi, "segments", (ha
     )
     .handle("listActivitySegments", ({ params }) =>
       Effect.gen(function* () {
+        const currentUser = yield* CurrentUser;
         const segments = yield* Segments;
 
-        return yield* segments.listForActivity(params.id);
+        return yield* segments.listForActivity(currentUser.id, params.id);
       }).pipe(
         Effect.catchTag("SegmentQueryError", () =>
           Effect.fail(new HttpApiError.InternalServerError({})),
@@ -136,15 +147,25 @@ export const DocsLive = HttpApiScalar.layer(RideLensApi, {
 });
 
 export const makeAppLive = (config?: AppConfig) =>
-  Layer.mergeAll(ApiLive, DocsLive).pipe(
-    HttpRouter.provideRequest(
-      Layer.mergeAll(Activities.makeLayer(config?.weather), Segments.layer).pipe(
-        Layer.provide(
-          DatabaseLayer({ dataDir: config?.dataDir, databaseUrl: config?.databaseUrl }),
+  (() => {
+    const DatabaseLive = DatabaseLayer({
+      dataDir: config?.dataDir,
+      databaseUrl: config?.databaseUrl,
+    });
+    const AuthServiceLive = makeAuthServiceLayer(config?.auth).pipe(Layer.provide(DatabaseLive));
+
+    return Layer.mergeAll(
+      ApiLive.pipe(Layer.provide(AuthMiddlewareLayer.pipe(Layer.provide(AuthServiceLive)))),
+      DocsLive,
+      AuthRoutes,
+    ).pipe(
+      HttpRouter.provideRequest(
+        Layer.mergeAll(Activities.makeLayer(config?.weather), Segments.layer, AuthServiceLive).pipe(
+          Layer.provide(DatabaseLive),
         ),
       ),
-    ),
-  );
+    );
+  })();
 
 export const AppLive = makeAppLive();
 
