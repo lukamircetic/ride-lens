@@ -43,6 +43,13 @@
       "when": 1783821555548,
       "tag": "0005_boring_valeria_richards",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1783890603046,
+      "tag": "0006_wakeful_mantis",
+      "breakpoints": true
     }
   ]
 }

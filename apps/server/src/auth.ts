@@ -1,6 +1,6 @@
 import { AuthMiddleware, CurrentUser } from "@ride-lens/api";
 import { RideLensDatabase } from "@ride-lens/db";
-import { Context, Effect, Layer } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 import { HttpEffect, HttpRouter, HttpServerRequest } from "effect/unstable/http";
 import { HttpApiError } from "effect/unstable/httpapi";
 import { makeBetterAuth, type BetterAuthConfig, type RideLensAuth } from "./better-auth";
@@ -33,6 +33,11 @@ export const AuthRoutes = HttpRouter.add(
 );
 
 const unauthorized = () => new HttpApiError.Unauthorized({});
+const unavailable = () => new HttpApiError.ServiceUnavailable({});
+
+class AuthSessionLookupError extends Data.TaggedError("AuthSessionLookupError")<{
+  readonly cause: unknown;
+}> {}
 
 export const AuthMiddlewareLayer = Layer.effect(
   AuthMiddleware,
@@ -47,8 +52,13 @@ export const AuthMiddlewareLayer = Layer.effect(
             auth.api.getSession({
               headers: new globalThis.Headers(Object.entries(request.headers)),
             }),
-          catch: unauthorized,
-        });
+          catch: (cause) => new AuthSessionLookupError({ cause }),
+        }).pipe(
+          Effect.tapError((error) =>
+            Effect.logError("Better Auth session lookup failed", { cause: error.cause }),
+          ),
+          Effect.mapError(unavailable),
+        );
 
         if (!session?.user.id) {
           return yield* Effect.fail(unauthorized());

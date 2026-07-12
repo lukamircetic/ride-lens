@@ -11,6 +11,9 @@ import type { WeatherConfig } from "./weather";
 
 export interface AppConfig extends DatabaseConfig {
   readonly auth?: AuthConfig | undefined;
+  readonly cors?: {
+    readonly allowedOrigins?: ReadonlyArray<string> | undefined;
+  };
   readonly weather?: WeatherConfig | undefined;
 }
 
@@ -154,6 +157,9 @@ export const makeAppLive = (config?: AppConfig) =>
     });
     const AuthServiceLive = makeAuthServiceLayer(config?.auth).pipe(Layer.provide(DatabaseLive));
 
+    const allowedOrigins = config?.cors?.allowedOrigins ??
+      config?.auth?.trustedOrigins ?? [process.env.RIDE_LENS_WEB_ORIGIN ?? "http://localhost:3010"];
+
     return Layer.mergeAll(
       ApiLive.pipe(Layer.provide(AuthMiddlewareLayer.pipe(Layer.provide(AuthServiceLive)))),
       DocsLive,
@@ -163,6 +169,15 @@ export const makeAppLive = (config?: AppConfig) =>
         Layer.mergeAll(Activities.makeLayer(config?.weather), Segments.layer, AuthServiceLive).pipe(
           Layer.provide(DatabaseLive),
         ),
+      ),
+      Layer.provide(
+        HttpRouter.cors({
+          allowedOrigins,
+          allowedMethods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
+          allowedHeaders: ["Content-Type"],
+          credentials: true,
+          maxAge: 600,
+        }),
       ),
     );
   })();

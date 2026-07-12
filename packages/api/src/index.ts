@@ -22,7 +22,7 @@ export class AuthMiddleware extends HttpApiMiddleware.Service<
   AuthMiddleware,
   { provides: CurrentUser }
 >()("@ride-lens/api/AuthMiddleware", {
-  error: HttpApiError.UnauthorizedNoContent,
+  error: [HttpApiError.UnauthorizedNoContent, HttpApiError.ServiceUnavailableNoContent],
 }) {}
 
 export const HealthResponse = Schema.Struct({

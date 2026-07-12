@@ -7,6 +7,7 @@ import type {
   SegmentDetailResponse,
   SegmentListResponse,
 } from "@ride-lens/api";
+import { env } from "@ride-lens/env/web";
 import {
   decodeActivityDetailResponse,
   decodeActivityListResponse,
@@ -18,6 +19,8 @@ import {
 } from "@ride-lens/api";
 
 type Decode<A> = (payload: unknown) => Promise<A>;
+
+const apiUrl = (path: string) => new URL(path, env.VITE_SERVER_URL).toString();
 
 export function listActivities(): Promise<ActivityListResponse> {
   return requestJson("/api/activities", decodeActivityListResponse);
@@ -71,9 +74,10 @@ export async function importFitFile(file: File): Promise<FitImportResponse> {
   const formData = new FormData();
   formData.append("file", file);
 
-  const response = await fetch("/api/activities/import", {
+  const response = await fetch(apiUrl("/api/activities/import"), {
     method: "POST",
     body: formData,
+    credentials: "include",
   });
 
   if (!response.ok) {
@@ -85,7 +89,7 @@ export async function importFitFile(file: File): Promise<FitImportResponse> {
 }
 
 async function requestJson<A>(url: string, decode: Decode<A>, init?: RequestInit): Promise<A> {
-  const response = await fetch(url, init);
+  const response = await fetch(apiUrl(url), { ...init, credentials: "include" });
 
   if (!response.ok) {
     throw new Error(`Request failed with status ${response.status}`);

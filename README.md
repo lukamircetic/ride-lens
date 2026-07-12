@@ -10,6 +10,7 @@ V1 is intentionally local-first:
 - View ride list, selected ride stats, route shape, speed/elevation/heart-rate profiles, yearly progress, and season highlights.
 
 See [docs/feature-roadmap.md](docs/feature-roadmap.md) for the map, segment, replay, weather, and 3D terrain roadmap.
+See [docs/deployment.md](docs/deployment.md) for the Cloudflare Pages and Coolify production runbook.
 
 ## Stack
 
@@ -34,7 +35,7 @@ pnpm dev:server
 pnpm dev:web
 ```
 
-Open the web app at [http://localhost:3010](http://localhost:3010). The web dev server proxies `/api`, `/health`, and `/openapi.json` to the Effect backend on `127.0.0.1:3002`.
+Open the web app at [http://localhost:3010](http://localhost:3010). Authentication and API requests are sent directly to `http://localhost:3002` with credentialed CORS. The Vite proxy remains available for manual development requests.
 
 Local app data is written to `.data/`:
 
@@ -51,12 +52,7 @@ A sample FIT file is available at:
 sample/ride-0-2026-07-05-12-30-42.fit
 ```
 
-You can upload it through the web app, or smoke-test the API directly while `pnpm dev:server` is running:
-
-```bash
-curl -sS -i -F file=@sample/ride-0-2026-07-05-12-30-42.fit \
-  http://127.0.0.1:3002/api/activities/import
-```
+Create an account in the web app, then upload the sample through the authenticated dashboard.
 
 Duplicate uploads are detected by SHA-256 hash and return the existing activity instead of inserting another copy.
 

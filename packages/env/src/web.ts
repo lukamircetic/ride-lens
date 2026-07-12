@@ -16,10 +16,15 @@ const isTruthyEnv = (value: string | undefined): boolean => value === "true" || 
 export const env = createEnv({
   clientPrefix: "VITE_",
   client: {
+    VITE_SERVER_URL: z.url(),
     VITE_MAPTILER_API_KEY: z.string().min(1).optional(),
     VITE_MAPTILER_STYLE_ID: z.string().min(1).optional(),
   },
   runtimeEnv: {
+    VITE_SERVER_URL:
+      getImportMetaEnv("VITE_SERVER_URL") ??
+      getProcessEnv("VITE_SERVER_URL") ??
+      "http://localhost:3002",
     VITE_MAPTILER_API_KEY:
       getImportMetaEnv("VITE_MAPTILER_API_KEY") ?? getProcessEnv("VITE_MAPTILER_API_KEY"),
     VITE_MAPTILER_STYLE_ID:
