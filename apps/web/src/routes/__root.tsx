@@ -1,6 +1,7 @@
 import { Toaster } from "@ride-lens/ui/components/sonner";
 import { HeadContent, Outlet, createRootRouteWithContext } from "@tanstack/react-router";
 
+import { AuthGate } from "../auth/auth-gate";
 import "../index.css";
 
 export interface RouterAppContext {}
@@ -31,8 +32,10 @@ function RootComponent() {
   return (
     <>
       <HeadContent />
-      <Outlet />
-      <Toaster richColors theme="dark" />
+      <AuthGate>
+        <Outlet />
+        <Toaster richColors theme="dark" />
+      </AuthGate>
     </>
   );
 }

@@ -9,7 +9,7 @@ import {
   type RideLensDrizzleDatabase,
   type RideLensDatabaseService,
 } from "@ride-lens/db";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { Clock, Data, Effect } from "effect";
 import { createHash, randomUUID } from "node:crypto";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
@@ -28,6 +28,7 @@ export class ActivityImportInternalError extends Data.TaggedError("ActivityImpor
 export interface ImportFitActivityOptions {
   readonly filePath: string;
   readonly filename: string;
+  readonly ownerUserId: string;
 }
 
 interface ExistingActivityImport {
@@ -40,21 +41,21 @@ const toActivityImportInternalError = (operation: string) => (cause: unknown) =>
 
 export const importFitActivity = (
   database: RideLensDatabaseService,
-  { filePath, filename }: ImportFitActivityOptions,
+  { filePath, filename, ownerUserId }: ImportFitActivityOptions,
 ) =>
   Effect.gen(function* () {
     const bytes = yield* readUploadBytes(filePath);
     const sourceHash = hashBytes(bytes);
 
-    const existing = yield* findExistingActivity(database.db, sourceHash);
+    const existing = yield* findExistingActivity(database.db, ownerUserId, sourceHash);
     if (existing) {
       return activityRowToResponse(existing.fitFile, existing.activity);
     }
 
     const parsed = yield* parseFitBytes(bytes);
     const originalFilename = normalizeFilename(filename);
-    const relativePath = `fit/${sourceHash}.fit`;
-    const absolutePath = join(database.uploadsDir, "fit", `${sourceHash}.fit`);
+    const relativePath = `fit/${ownerUserId}/${sourceHash}.fit`;
+    const absolutePath = join(database.uploadsDir, "fit", ownerUserId, `${sourceHash}.fit`);
     const timeCreated = yield* Clock.currentTimeMillis;
 
     yield* writeStoredFitFile(absolutePath, bytes);
@@ -63,6 +64,7 @@ export const importFitActivity = (
       db: database.db,
       parsed,
       sourceHash,
+      ownerUserId,
       originalFilename,
       relativePath,
       sizeBytes: bytes.byteLength,
@@ -91,14 +93,18 @@ const writeStoredFitFile = (absolutePath: string, bytes: Uint8Array) =>
     catch: toActivityImportInternalError("store FIT upload"),
   });
 
-const findExistingActivity = (db: RideLensDrizzleDatabase, sourceHash: string) =>
+const findExistingActivity = (
+  db: RideLensDrizzleDatabase,
+  ownerUserId: string,
+  sourceHash: string,
+) =>
   Effect.tryPromise({
     try: async (): Promise<ExistingActivityImport | null> => {
       const rows = await db
         .select({ fitFile: fit_files, activity: activities })
         .from(fit_files)
         .innerJoin(activities, eq(activities.fit_file_id, fit_files.id))
-        .where(eq(fit_files.source_hash, sourceHash))
+        .where(and(eq(fit_files.owner_user_id, ownerUserId), eq(fit_files.source_hash, sourceHash)))
         .limit(1);
 
       return rows[0] ?? null;
@@ -110,6 +116,7 @@ const persistParsedActivity = ({
   db,
   parsed,
   sourceHash,
+  ownerUserId,
   originalFilename,
   relativePath,
   sizeBytes,
@@ -118,6 +125,7 @@ const persistParsedActivity = ({
   readonly db: RideLensDrizzleDatabase;
   readonly parsed: ParsedFitActivity;
   readonly sourceHash: string;
+  readonly ownerUserId: string;
   readonly originalFilename: string;
   readonly relativePath: string;
   readonly sizeBytes: number;
@@ -131,6 +139,7 @@ const persistParsedActivity = ({
 
         const fitFile = {
           id: fitFileId,
+          owner_user_id: ownerUserId,
           source_hash: sourceHash,
           original_filename: originalFilename,
           relative_path: relativePath,
@@ -141,6 +150,7 @@ const persistParsedActivity = ({
         const activity = summaryToActivityInsert(
           activityId,
           fitFileId,
+          ownerUserId,
           parsed.summary,
           timeCreated,
         );
@@ -210,11 +220,13 @@ const persistParsedActivity = ({
 const summaryToActivityInsert = (
   activityId: string,
   fitFileId: string,
+  ownerUserId: string,
   summary: FitImportResponse["summary"],
   timeCreated: number,
 ) =>
   ({
     id: activityId,
+    owner_user_id: ownerUserId,
     fit_file_id: fitFileId,
     start_time: isoToEpochMs(summary.startTime),
     end_time: isoToEpochMs(summary.endTime),

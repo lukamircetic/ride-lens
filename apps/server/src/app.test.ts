@@ -38,7 +38,73 @@ const weatherClient = {
     },
   }),
 } satisfies WeatherClient;
-const { handler, dispose } = makeWebHandler({ dataDir, weather: { client: weatherClient } });
+const AUTH_BASE_URL = "http://ride-lens.test";
+const { handler: rawHandler, dispose } = makeWebHandler({
+  dataDir,
+  auth: {
+    baseURL: AUTH_BASE_URL,
+    secret: "ride-lens-test-secret-at-least-32-characters",
+  },
+  weather: { client: weatherClient },
+});
+
+const createTestSession = async (input: {
+  readonly name: string;
+  readonly email: string;
+  readonly password: string;
+}) => {
+  const response = await rawHandler(
+    new Request(`${AUTH_BASE_URL}/api/auth/sign-up/email`, {
+      method: "POST",
+      headers: {
+        "content-type": "application/json",
+        origin: AUTH_BASE_URL,
+      },
+      body: JSON.stringify(input),
+    }),
+  );
+
+  if (!response.ok) {
+    throw new Error(`Could not create test session: ${response.status}`);
+  }
+
+  const cookie = response.headers
+    .getSetCookie()
+    .map((value) => value.split(";", 1)[0])
+    .filter((value): value is string => value !== undefined)
+    .join("; ");
+  if (!cookie) {
+    throw new Error("Better Auth did not return a session cookie");
+  }
+
+  return cookie;
+};
+
+const PRIMARY_COOKIE = await createTestSession({
+  name: "Primary Rider",
+  email: "primary@ride-lens.test",
+  password: "primary-test-password",
+});
+const SECONDARY_COOKIE = await createTestSession({
+  name: "Secondary Rider",
+  email: "secondary@ride-lens.test",
+  password: "secondary-test-password",
+});
+
+const handler = (request: Request) => {
+  const url = new URL(request.url);
+  if (
+    !url.pathname.startsWith("/api/") ||
+    url.pathname.startsWith("/api/auth/") ||
+    request.headers.has("cookie")
+  ) {
+    return rawHandler(request);
+  }
+
+  const headers = new Headers(request.headers);
+  headers.set("cookie", PRIMARY_COOKIE);
+  return rawHandler(new Request(request, { headers }));
+};
 
 afterAll(async () => {
   await dispose();
@@ -198,6 +264,28 @@ describe("Ride Lens API", () => {
       info: {
         title: "Ride Lens API",
         version: "0.0.0",
+      },
+    });
+  });
+
+  it("rejects unauthenticated API requests", async () => {
+    const response = await rawHandler(new Request("http://ride-lens.test/api/activities"));
+
+    expect(response.status).toBe(401);
+  });
+
+  it("serves the authenticated Better Auth session", async () => {
+    const response = await rawHandler(
+      new Request(`${AUTH_BASE_URL}/api/auth/get-session`, {
+        headers: { cookie: PRIMARY_COOKIE },
+      }),
+    );
+
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      user: {
+        name: "Primary Rider",
+        email: "primary@ride-lens.test",
       },
     });
   });
@@ -513,6 +601,40 @@ describe("Ride Lens API", () => {
         }),
       ]),
     );
+  });
+
+  it("isolates activity data by authenticated Better Auth user", async () => {
+    const form = new FormData();
+    form.append("file", new Blob([makeRideFitFile()]), "secondary-rider.fit");
+
+    const importResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        headers: { cookie: SECONDARY_COOKIE },
+        body: form,
+      }),
+    );
+    expect(importResponse.status).toBe(200);
+
+    const secondaryListResponse = await handler(
+      new Request("http://ride-lens.test/api/activities", {
+        headers: { cookie: SECONDARY_COOKIE },
+      }),
+    );
+    const secondaryList = (await secondaryListResponse.json()) as ActivityListResponse;
+    expect(secondaryList.activities.map((activity) => activity.filename)).toEqual([
+      "secondary-rider.fit",
+    ]);
+
+    const primaryListResponse = await handler(
+      new Request("http://ride-lens.test/api/activities", {
+        headers: { cookie: PRIMARY_COOKIE },
+      }),
+    );
+    const primaryList = (await primaryListResponse.json()) as ActivityListResponse;
+    expect(
+      primaryList.activities.some((activity) => activity.filename === "secondary-rider.fit"),
+    ).toBe(false);
   });
 
   it("returns 404 for unknown activity detail", async () => {

@@ -23,6 +23,7 @@ import {
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { Context, Data, Effect, Layer } from "effect";
 import { randomUUID } from "node:crypto";
+import { claimMigratedOwnership } from "./ownership";
 import { computeSegmentRange, findSegmentMatches, type SegmentRecord } from "./segment-matching";
 
 export class SegmentValidationError extends Data.TaggedError("SegmentValidationError")<{
@@ -37,6 +38,13 @@ export class SegmentQueryError extends Data.TaggedError("SegmentQueryError")<{
 export class SegmentNotFoundError extends Data.TaggedError("SegmentNotFoundError")<{
   readonly segmentId: string;
 }> {}
+
+const claimOwnership = (database: RideLensDatabaseService, ownerUserId: string) =>
+  claimMigratedOwnership(database, ownerUserId).pipe(
+    Effect.mapError(
+      (error) => new SegmentQueryError({ operation: "claim legacy ownership", cause: error.cause }),
+    ),
+  );
 
 interface ActivityWithFile {
   readonly activity: ActivityRow;
@@ -58,17 +66,20 @@ export class Segments extends Context.Service<
   Segments,
   {
     readonly create: (
+      ownerUserId: string,
       payload: CreateSegmentPayload,
     ) => Effect.Effect<SegmentDetailResponse, SegmentValidationError | SegmentQueryError>;
     readonly update: (
+      ownerUserId: string,
       segmentId: string,
       payload: UpdateSegmentPayload,
     ) => Effect.Effect<
       SegmentDetailResponse,
       SegmentValidationError | SegmentNotFoundError | SegmentQueryError
     >;
-    readonly list: () => Effect.Effect<SegmentListResponse, SegmentQueryError>;
+    readonly list: (ownerUserId: string) => Effect.Effect<SegmentListResponse, SegmentQueryError>;
     readonly listForActivity: (
+      ownerUserId: string,
       activityId: string,
     ) => Effect.Effect<ActivitySegmentsResponse, SegmentQueryError>;
   }
@@ -79,20 +90,27 @@ export class Segments extends Context.Service<
       const database = yield* RideLensDatabase;
 
       return Segments.of({
-        create: Effect.fn("Segments.create")(function* (payload: CreateSegmentPayload) {
-          return yield* createSegment(database, payload);
+        create: Effect.fn("Segments.create")(function* (
+          ownerUserId: string,
+          payload: CreateSegmentPayload,
+        ) {
+          return yield* createSegment(database, ownerUserId, payload);
         }),
         update: Effect.fn("Segments.update")(function* (
+          ownerUserId: string,
           segmentId: string,
           payload: UpdateSegmentPayload,
         ) {
-          return yield* updateSegment(database, segmentId, payload);
+          return yield* updateSegment(database, ownerUserId, segmentId, payload);
         }),
-        list: Effect.fn("Segments.list")(function* () {
-          return yield* listSegments(database);
+        list: Effect.fn("Segments.list")(function* (ownerUserId: string) {
+          return yield* listSegments(database, ownerUserId);
         }),
-        listForActivity: Effect.fn("Segments.listForActivity")(function* (activityId: string) {
-          return yield* listActivitySegments(database, activityId);
+        listForActivity: Effect.fn("Segments.listForActivity")(function* (
+          ownerUserId: string,
+          activityId: string,
+        ) {
+          return yield* listActivitySegments(database, ownerUserId, activityId);
         }),
       });
     }),
@@ -101,9 +119,11 @@ export class Segments extends Context.Service<
 
 const createSegment = (
   database: RideLensDatabaseService,
+  ownerUserId: string,
   payload: CreateSegmentPayload,
 ): Effect.Effect<SegmentDetailResponse, SegmentValidationError | SegmentQueryError> =>
   Effect.gen(function* () {
+    yield* claimOwnership(database, ownerUserId);
     const name = payload.name.trim();
     if (name.length === 0) {
       return yield* Effect.fail(
@@ -111,7 +131,7 @@ const createSegment = (
       );
     }
 
-    const sourceActivity = yield* loadActivity(database.db, payload.activityId);
+    const sourceActivity = yield* loadActivity(database.db, ownerUserId, payload.activityId);
     if (sourceActivity === null) {
       return yield* Effect.fail(
         new SegmentValidationError({ message: "Source activity not found" }),
@@ -135,6 +155,7 @@ const createSegment = (
     const sourceEffortId = randomUUID();
     const matchedEfforts = yield* buildMatchedEffortRows(
       database.db,
+      ownerUserId,
       segmentId,
       sourceActivity.activity.id,
       range.geometry,
@@ -192,7 +213,7 @@ const createSegment = (
     });
 
     const detail = yield* Effect.tryPromise({
-      try: () => querySegmentDetail(database.db, segmentId),
+      try: () => querySegmentDetail(database.db, ownerUserId, segmentId),
       catch: (cause) => new SegmentQueryError({ operation: "load created segment", cause }),
     });
     if (detail === null) {
@@ -206,6 +227,7 @@ const createSegment = (
 
 const updateSegment = (
   database: RideLensDatabaseService,
+  ownerUserId: string,
   segmentId: string,
   payload: UpdateSegmentPayload,
 ): Effect.Effect<
@@ -213,6 +235,7 @@ const updateSegment = (
   SegmentValidationError | SegmentNotFoundError | SegmentQueryError
 > =>
   Effect.gen(function* () {
+    yield* claimOwnership(database, ownerUserId);
     const name = payload.name.trim();
     if (name.length === 0) {
       return yield* Effect.fail(
@@ -220,12 +243,16 @@ const updateSegment = (
       );
     }
 
-    const existing = yield* loadSegment(database.db, segmentId);
+    const existing = yield* loadSegment(database.db, ownerUserId, segmentId);
     if (existing === null) {
       return yield* Effect.fail(new SegmentNotFoundError({ segmentId }));
     }
 
-    const sourceActivity = yield* loadActivity(database.db, existing.source_activity_id);
+    const sourceActivity = yield* loadActivity(
+      database.db,
+      ownerUserId,
+      existing.source_activity_id,
+    );
     if (sourceActivity === null) {
       return yield* Effect.fail(
         new SegmentValidationError({ message: "Source activity not found" }),
@@ -247,6 +274,7 @@ const updateSegment = (
     const now = Date.now();
     const matchedEfforts = yield* buildMatchedEffortRows(
       database.db,
+      ownerUserId,
       segmentId,
       sourceActivity.activity.id,
       range.geometry,
@@ -304,7 +332,7 @@ const updateSegment = (
     });
 
     const detail = yield* Effect.tryPromise({
-      try: () => querySegmentDetail(database.db, segmentId),
+      try: () => querySegmentDetail(database.db, ownerUserId, segmentId),
       catch: (cause) => new SegmentQueryError({ operation: "load updated segment", cause }),
     });
     if (detail === null) {
@@ -316,10 +344,12 @@ const updateSegment = (
 
 const listSegments = (
   database: RideLensDatabaseService,
+  ownerUserId: string,
 ): Effect.Effect<SegmentListResponse, SegmentQueryError> =>
   Effect.gen(function* () {
+    yield* claimOwnership(database, ownerUserId);
     const rows = yield* Effect.tryPromise({
-      try: () => querySegmentDetails(database.db),
+      try: () => querySegmentDetails(database.db, ownerUserId),
       catch: (cause) => new SegmentQueryError({ operation: "list segments", cause }),
     });
 
@@ -328,11 +358,13 @@ const listSegments = (
 
 export const listActivitySegments = (
   database: RideLensDatabaseService,
+  ownerUserId: string,
   activityId: string,
 ): Effect.Effect<ActivitySegmentsResponse, SegmentQueryError> =>
   Effect.gen(function* () {
+    yield* claimOwnership(database, ownerUserId);
     const details = yield* Effect.tryPromise({
-      try: () => querySegmentDetails(database.db),
+      try: () => querySegmentDetails(database.db, ownerUserId),
       catch: (cause) => new SegmentQueryError({ operation: "list activity segments", cause }),
     });
 
@@ -350,12 +382,21 @@ export const listActivitySegments = (
 
 export const matchExistingSegmentsForActivity = (
   database: RideLensDatabaseService,
+  ownerUserId: string,
   activityId: string,
 ): Effect.Effect<void, SegmentQueryError> =>
   Effect.gen(function* () {
     const records = yield* loadActivityRecords(database.db, activityId);
     const segmentRows = yield* Effect.tryPromise({
-      try: () => database.db.select().from(segmentsTable).orderBy(desc(segmentsTable.created_at)),
+      try: async () => {
+        const rows = await database.db
+          .select({ segment: segmentsTable })
+          .from(segmentsTable)
+          .innerJoin(activities, eq(segmentsTable.source_activity_id, activities.id))
+          .where(eq(activities.owner_user_id, ownerUserId))
+          .orderBy(desc(segmentsTable.created_at));
+        return rows.map(({ segment }) => segment);
+      },
       catch: (cause) =>
         new SegmentQueryError({ operation: "load segments for activity match", cause }),
     });
@@ -414,6 +455,7 @@ export const matchExistingSegmentsForActivity = (
 
 const buildMatchedEffortRows = (
   db: RideLensDrizzleDatabase,
+  ownerUserId: string,
   segmentId: string,
   sourceActivityId: string,
   sourceGeometry: SegmentDetailResponse["segment"]["geometry"],
@@ -421,7 +463,7 @@ const buildMatchedEffortRows = (
 ): Effect.Effect<Array<typeof segment_efforts.$inferInsert>, SegmentQueryError> =>
   Effect.tryPromise({
     try: async () => {
-      const activitiesWithFiles = await queryActivityRows(db);
+      const activitiesWithFiles = await queryActivityRows(db, ownerUserId);
       const rows: Array<typeof segment_efforts.$inferInsert> = [];
 
       for (const activityWithFile of activitiesWithFiles) {
@@ -463,22 +505,25 @@ const buildMatchedEffortRows = (
 
 const loadSegment = (
   db: RideLensDrizzleDatabase,
+  ownerUserId: string,
   segmentId: string,
 ): Effect.Effect<SegmentRow | null, SegmentQueryError> =>
   Effect.tryPromise({
     try: async () => {
       const rows = await db
-        .select()
+        .select({ segment: segmentsTable })
         .from(segmentsTable)
-        .where(eq(segmentsTable.id, segmentId))
+        .innerJoin(activities, eq(segmentsTable.source_activity_id, activities.id))
+        .where(and(eq(segmentsTable.id, segmentId), eq(activities.owner_user_id, ownerUserId)))
         .limit(1);
-      return rows[0] ?? null;
+      return rows[0]?.segment ?? null;
     },
     catch: (cause) => new SegmentQueryError({ operation: "load segment", cause }),
   });
 
 const loadActivity = (
   db: RideLensDrizzleDatabase,
+  ownerUserId: string,
   activityId: string,
 ): Effect.Effect<ActivityWithFile | null, SegmentQueryError> =>
   Effect.tryPromise({
@@ -487,7 +532,7 @@ const loadActivity = (
         .select({ activity: activities, fitFile: fit_files })
         .from(activities)
         .innerJoin(fit_files, eq(activities.fit_file_id, fit_files.id))
-        .where(eq(activities.id, activityId))
+        .where(and(eq(activities.id, activityId), eq(activities.owner_user_id, ownerUserId)))
         .limit(1);
       return rows[0] ?? null;
     },
@@ -504,11 +549,15 @@ const loadActivityRecords = (
       new SegmentQueryError({ operation: "load activity records for segment", cause }),
   });
 
-const queryActivityRows = (db: RideLensDrizzleDatabase): Promise<ReadonlyArray<ActivityWithFile>> =>
+const queryActivityRows = (
+  db: RideLensDrizzleDatabase,
+  ownerUserId: string,
+): Promise<ReadonlyArray<ActivityWithFile>> =>
   db
     .select({ activity: activities, fitFile: fit_files })
     .from(activities)
     .innerJoin(fit_files, eq(activities.fit_file_id, fit_files.id))
+    .where(eq(activities.owner_user_id, ownerUserId))
     .orderBy(desc(activities.start_time), desc(activities.time_created));
 
 const queryActivityRecords = async (
@@ -538,21 +587,30 @@ const queryActivityRecords = async (
 
 const querySegmentDetail = async (
   db: RideLensDrizzleDatabase,
+  ownerUserId: string,
   segmentId: string,
 ): Promise<SegmentDetailRows | null> => {
-  const rows = await querySegmentDetails(db, [segmentId]);
+  const rows = await querySegmentDetails(db, ownerUserId, [segmentId]);
   return rows[0] ?? null;
 };
 
 const querySegmentDetails = async (
   db: RideLensDrizzleDatabase,
+  ownerUserId: string,
   segmentIds?: ReadonlyArray<string>,
 ): Promise<ReadonlyArray<SegmentDetailRows>> => {
-  const segmentRows = await db
-    .select()
+  const segmentRowsWithOwner = await db
+    .select({ segment: segmentsTable })
     .from(segmentsTable)
-    .where(segmentIds && segmentIds.length > 0 ? inArray(segmentsTable.id, segmentIds) : undefined)
+    .innerJoin(activities, eq(segmentsTable.source_activity_id, activities.id))
+    .where(
+      and(
+        eq(activities.owner_user_id, ownerUserId),
+        segmentIds && segmentIds.length > 0 ? inArray(segmentsTable.id, segmentIds) : undefined,
+      ),
+    )
     .orderBy(desc(segmentsTable.created_at));
+  const segmentRows = segmentRowsWithOwner.map(({ segment }) => segment);
 
   if (segmentRows.length === 0) return [];
 
@@ -562,9 +620,12 @@ const querySegmentDetails = async (
     .innerJoin(activities, eq(segment_efforts.activity_id, activities.id))
     .innerJoin(fit_files, eq(activities.fit_file_id, fit_files.id))
     .where(
-      inArray(
-        segment_efforts.segment_id,
-        segmentRows.map((segment) => segment.id),
+      and(
+        eq(activities.owner_user_id, ownerUserId),
+        inArray(
+          segment_efforts.segment_id,
+          segmentRows.map((segment) => segment.id),
+        ),
       ),
     )
     .orderBy(asc(segment_efforts.segment_id), asc(segment_efforts.elapsed_seconds));

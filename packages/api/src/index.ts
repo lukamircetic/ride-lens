@@ -1,13 +1,29 @@
-import { Schema } from "effect";
+import { Context, Schema } from "effect";
 import * as Multipart from "effect/unstable/http/Multipart";
 import {
   HttpApi,
   HttpApiEndpoint,
   HttpApiError,
   HttpApiGroup,
+  HttpApiMiddleware,
   HttpApiSchema,
   OpenApi,
 } from "effect/unstable/httpapi";
+
+export class CurrentUser extends Context.Service<
+  CurrentUser,
+  {
+    readonly id: string;
+    readonly provider: "better-auth";
+  }
+>()("@ride-lens/api/CurrentUser") {}
+
+export class AuthMiddleware extends HttpApiMiddleware.Service<
+  AuthMiddleware,
+  { provides: CurrentUser }
+>()("@ride-lens/api/AuthMiddleware", {
+  error: HttpApiError.UnauthorizedNoContent,
+}) {}
 
 export const HealthResponse = Schema.Struct({
   status: Schema.Literal("ok"),
@@ -292,13 +308,15 @@ export const SystemApi = HttpApiGroup.make("system", { topLevel: true }).add(
   }),
 );
 
-export const ActivityImportsApi = HttpApiGroup.make("activityImports", { topLevel: true }).add(
-  HttpApiEndpoint.post("importFit", "/api/activities/import", {
-    payload: FitImportPayload,
-    success: FitImportResponse,
-    error: [HttpApiError.BadRequestNoContent, HttpApiError.InternalServerErrorNoContent],
-  }),
-);
+export const ActivityImportsApi = HttpApiGroup.make("activityImports", { topLevel: true })
+  .add(
+    HttpApiEndpoint.post("importFit", "/api/activities/import", {
+      payload: FitImportPayload,
+      success: FitImportResponse,
+      error: [HttpApiError.BadRequestNoContent, HttpApiError.InternalServerErrorNoContent],
+    }),
+  )
+  .middleware(AuthMiddleware);
 
 export const ActivitiesApi = HttpApiGroup.make("activities", { topLevel: true })
   .add(
@@ -321,7 +339,8 @@ export const ActivitiesApi = HttpApiGroup.make("activities", { topLevel: true })
       success: ActivityDetailResponse,
       error: [HttpApiError.NotFoundNoContent, HttpApiError.InternalServerErrorNoContent],
     }),
-  );
+  )
+  .middleware(AuthMiddleware);
 
 export const SegmentsApi = HttpApiGroup.make("segments", { topLevel: true })
   .add(
@@ -359,7 +378,8 @@ export const SegmentsApi = HttpApiGroup.make("segments", { topLevel: true })
       success: ActivitySegmentsResponse,
       error: HttpApiError.InternalServerErrorNoContent,
     }),
-  );
+  )
+  .middleware(AuthMiddleware);
 
 export class RideLensApi extends HttpApi.make("ride-lens-api")
   .add(SystemApi)

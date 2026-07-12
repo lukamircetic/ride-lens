@@ -55,10 +55,11 @@ const toActivityQueryError = (message: string) => (cause: unknown) =>
 
 export const listActivities = (
   database: RideLensDatabaseService,
+  ownerUserId: string,
 ): Effect.Effect<ActivityListResponse, ActivityQueryError> =>
   Effect.gen(function* () {
     const rows = yield* Effect.tryPromise({
-      try: () => queryActivityRows(database.db),
+      try: () => queryActivityRows(database.db, ownerUserId),
       catch: toActivityQueryError("Failed to list activities"),
     });
 
@@ -69,9 +70,10 @@ export const listActivities = (
 
 export const listActivityRoutes = Effect.fn("ActivityQueries.listActivityRoutes")(function* (
   database: RideLensDatabaseService,
+  ownerUserId: string,
 ) {
   const routes = yield* Effect.tryPromise({
-    try: () => queryActivityRoutes(database.db),
+    try: () => queryActivityRoutes(database.db, ownerUserId),
     catch: toActivityQueryError("Failed to list activity routes"),
   });
 
@@ -82,11 +84,12 @@ export const listActivityRoutes = Effect.fn("ActivityQueries.listActivityRoutes"
 
 export const getActivityDetail = (
   database: RideLensDatabaseService,
+  ownerUserId: string,
   activityId: string,
 ): Effect.Effect<ActivityDetailResponse, ActivityNotFoundError | ActivityQueryError> =>
   Effect.gen(function* () {
     const detail = yield* Effect.tryPromise({
-      try: () => queryActivityDetail(database.db, activityId),
+      try: () => queryActivityDetail(database.db, ownerUserId, activityId),
       catch: toActivityQueryError("Failed to load activity detail"),
     });
 
@@ -105,15 +108,20 @@ export const getActivityDetail = (
     };
   });
 
-const queryActivityRows = (db: RideLensDrizzleDatabase): Promise<ReadonlyArray<ActivityWithFile>> =>
+const queryActivityRows = (
+  db: RideLensDrizzleDatabase,
+  ownerUserId: string,
+): Promise<ReadonlyArray<ActivityWithFile>> =>
   db
     .select({ activity: activities, fitFile: fit_files })
     .from(activities)
     .innerJoin(fit_files, eq(activities.fit_file_id, fit_files.id))
+    .where(eq(activities.owner_user_id, ownerUserId))
     .orderBy(desc(activities.start_time), desc(activities.time_created));
 
 const queryActivityDetail = async (
   db: RideLensDrizzleDatabase,
+  ownerUserId: string,
   activityId: string,
 ): Promise<
   | (ActivityWithFile & {
@@ -127,7 +135,7 @@ const queryActivityDetail = async (
     .select({ activity: activities, fitFile: fit_files })
     .from(activities)
     .innerJoin(fit_files, eq(activities.fit_file_id, fit_files.id))
-    .where(eq(activities.id, activityId))
+    .where(and(eq(activities.id, activityId), eq(activities.owner_user_id, ownerUserId)))
     .limit(1);
 
   const row = rows[0];
@@ -163,8 +171,9 @@ const queryActivityDetail = async (
 
 const queryActivityRoutes = async (
   db: RideLensDrizzleDatabase,
+  ownerUserId: string,
 ): Promise<ActivityRoutesResponse["routes"]> => {
-  const rows = await queryActivityRows(db);
+  const rows = await queryActivityRows(db, ownerUserId);
   const records = await db
     .select({
       activityId: activity_records.activity_id,
@@ -177,7 +186,14 @@ const queryActivityRoutes = async (
       heartRateBpm: activity_records.heart_rate_bpm,
     })
     .from(activity_records)
-    .where(and(isNotNull(activity_records.latitude), isNotNull(activity_records.longitude)))
+    .innerJoin(activities, eq(activity_records.activity_id, activities.id))
+    .where(
+      and(
+        eq(activities.owner_user_id, ownerUserId),
+        isNotNull(activity_records.latitude),
+        isNotNull(activity_records.longitude),
+      ),
+    )
     .orderBy(asc(activity_records.activity_id), asc(activity_records.record_index));
 
   const pointsByActivity = new Map<string, Array<ActivityRoutePointResponse>>();
