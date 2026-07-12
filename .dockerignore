@@ -1,0 +1,8 @@
+.data
+.git
+**/.env
+**/.env.*
+**/dist
+**/node_modules
+design-variants
+sample

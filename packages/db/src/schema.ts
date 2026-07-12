@@ -11,13 +11,11 @@ import {
 
 export * from "./auth-schema";
 
-export const LEGACY_OWNER_USER_ID = "legacy-local-user";
-
 export const fit_files = sqliteTable(
   "fit_files",
   {
     id: text().primaryKey(),
-    owner_user_id: text().notNull().default(LEGACY_OWNER_USER_ID),
+    owner_user_id: text().notNull(),
     source_hash: text().notNull(),
     original_filename: text().notNull(),
     relative_path: text().notNull(),
@@ -35,7 +33,7 @@ export const activities = sqliteTable(
   "activities",
   {
     id: text().primaryKey(),
-    owner_user_id: text().notNull().default(LEGACY_OWNER_USER_ID),
+    owner_user_id: text().notNull(),
     fit_file_id: text()
       .notNull()
       .references(() => fit_files.id, { onDelete: "restrict" }),

@@ -23,7 +23,6 @@ import {
 import { and, asc, desc, eq, inArray } from "drizzle-orm";
 import { Context, Data, Effect, Layer } from "effect";
 import { randomUUID } from "node:crypto";
-import { claimMigratedOwnership } from "./ownership";
 import { computeSegmentRange, findSegmentMatches, type SegmentRecord } from "./segment-matching";
 
 export class SegmentValidationError extends Data.TaggedError("SegmentValidationError")<{
@@ -38,13 +37,6 @@ export class SegmentQueryError extends Data.TaggedError("SegmentQueryError")<{
 export class SegmentNotFoundError extends Data.TaggedError("SegmentNotFoundError")<{
   readonly segmentId: string;
 }> {}
-
-const claimOwnership = (database: RideLensDatabaseService, ownerUserId: string) =>
-  claimMigratedOwnership(database, ownerUserId).pipe(
-    Effect.mapError(
-      (error) => new SegmentQueryError({ operation: "claim legacy ownership", cause: error.cause }),
-    ),
-  );
 
 interface ActivityWithFile {
   readonly activity: ActivityRow;
@@ -123,7 +115,6 @@ const createSegment = (
   payload: CreateSegmentPayload,
 ): Effect.Effect<SegmentDetailResponse, SegmentValidationError | SegmentQueryError> =>
   Effect.gen(function* () {
-    yield* claimOwnership(database, ownerUserId);
     const name = payload.name.trim();
     if (name.length === 0) {
       return yield* Effect.fail(
@@ -235,7 +226,6 @@ const updateSegment = (
   SegmentValidationError | SegmentNotFoundError | SegmentQueryError
 > =>
   Effect.gen(function* () {
-    yield* claimOwnership(database, ownerUserId);
     const name = payload.name.trim();
     if (name.length === 0) {
       return yield* Effect.fail(
@@ -347,7 +337,6 @@ const listSegments = (
   ownerUserId: string,
 ): Effect.Effect<SegmentListResponse, SegmentQueryError> =>
   Effect.gen(function* () {
-    yield* claimOwnership(database, ownerUserId);
     const rows = yield* Effect.tryPromise({
       try: () => querySegmentDetails(database.db, ownerUserId),
       catch: (cause) => new SegmentQueryError({ operation: "list segments", cause }),
@@ -362,7 +351,6 @@ export const listActivitySegments = (
   activityId: string,
 ): Effect.Effect<ActivitySegmentsResponse, SegmentQueryError> =>
   Effect.gen(function* () {
-    yield* claimOwnership(database, ownerUserId);
     const details = yield* Effect.tryPromise({
       try: () => querySegmentDetails(database.db, ownerUserId),
       catch: (cause) => new SegmentQueryError({ operation: "list activity segments", cause }),
