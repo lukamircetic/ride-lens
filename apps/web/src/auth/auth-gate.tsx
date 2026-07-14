@@ -1,17 +1,16 @@
 import { Button } from "@ride-lens/ui/components/button";
 import { Input } from "@ride-lens/ui/components/input";
 import { Label } from "@ride-lens/ui/components/label";
-import { LogInIcon, LoaderCircleIcon, UserPlusIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import { useState, type FormEvent, type ReactNode } from "react";
 
 import Loader from "../components/loader";
-import { AppHeader } from "../features/rides/components/app-header";
 import { authClient } from "./auth-client";
 
 type AuthMode = "sign-in" | "sign-up";
 
 const fieldClassName =
-  "h-11 border-ride-line bg-ride-night-2 px-3 font-ride-mono text-sm text-ride-ink placeholder:text-ride-ink-dim focus-visible:border-ride-amber focus-visible:ring-ride-amber/25";
+  "h-11 border-ride-line bg-ride-night-2 px-3 font-ride text-sm text-ride-ink placeholder:text-ride-ink-dim focus-visible:border-ride-amber focus-visible:ring-ride-amber/25";
 
 const readField = (form: FormData, name: string) => {
   const value = form.get(name);
@@ -44,24 +43,30 @@ function SignedOutView({ onAuthenticated }: { readonly onAuthenticated: () => Pr
   const [mode, setMode] = useState<AuthMode>("sign-in");
 
   return (
-    <div data-app="ride-lens">
-      <div className="mx-auto min-h-svh max-w-[1240px] px-7 pb-[60px]">
-        <AppHeader onAuthModeChange={setMode} />
-        <main className="grid gap-12 pt-[clamp(52px,10vh,104px)] lg:grid-cols-[minmax(0,1fr)_420px] lg:gap-20">
-          <section className="max-w-[650px] border-l-[3px] border-ride-amber pl-6">
-            <div className="font-ride-mono text-[11px] font-bold uppercase text-ride-amber">
-              Private ride log
-            </div>
-            <h1 className="mt-3 max-w-[14ch] font-ride text-[40px] leading-[1.02] font-black uppercase text-ride-ink sm:text-[56px] lg:text-[64px]">
-              Your roads. Your record.
-            </h1>
-          </section>
+    <div data-app="ride-lens" className="auth-shell">
+      <section className="auth-pane">
+        <div className="auth-brand-row">
+          <div className="font-ride text-[30px] leading-none font-black uppercase tracking-[-0.04em] text-ride-ink">
+            Ride Lens
+          </div>
+          <span className="auth-brand-line" aria-hidden="true" />
+        </div>
 
-          <section className="border-t border-ride-line pt-6 lg:border-t-0 lg:border-l lg:pt-0 lg:pl-10">
+        <div className="auth-content">
+          <div className="auth-form-container">
             <AuthForm mode={mode} onModeChange={setMode} onAuthenticated={onAuthenticated} />
-          </section>
-        </main>
-      </div>
+          </div>
+        </div>
+      </section>
+
+      <aside className="auth-art">
+        <img
+          src="/images/auth-road.webp"
+          alt="A winding forest road viewed from above"
+          className="auth-art-image"
+        />
+        <div className="auth-art-overlay" aria-hidden="true" />
+      </aside>
     </div>
   );
 }
@@ -77,6 +82,7 @@ function AuthForm({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const isSignUp = mode === "sign-up";
 
   const changeMode = (nextMode: AuthMode) => {
     setError(null);
@@ -93,7 +99,7 @@ function AuthForm({
     const password = readField(form, "password");
 
     try {
-      if (mode === "sign-up") {
+      if (isSignUp) {
         const confirmPassword = readField(form, "confirmPassword");
         if (password !== confirmPassword) {
           setError("Passwords do not match.");
@@ -125,67 +131,54 @@ function AuthForm({
     }
   };
 
-  const isSignUp = mode === "sign-up";
-
   return (
-    <div>
-      <div
-        className="grid grid-cols-2 border border-ride-line"
-        role="tablist"
-        aria-label="Account mode"
-      >
-        <AuthModeButton
-          active={!isSignUp}
-          icon={<LogInIcon />}
-          label="Sign in"
-          onClick={() => changeMode("sign-in")}
-        />
-        <AuthModeButton
-          active={isSignUp}
-          icon={<UserPlusIcon />}
-          label="Create account"
-          onClick={() => changeMode("sign-up")}
-        />
+    <form key={mode} className="flex flex-col gap-6" onSubmit={submit}>
+      <div className="flex flex-col items-center gap-1.5 text-center">
+        <h1 className="font-ride text-2xl font-extrabold tracking-[-0.025em] text-ride-ink">
+          {isSignUp ? "Create your account" : "Sign in to Ride Lens"}
+        </h1>
       </div>
 
-      <form key={mode} className="mt-7 space-y-5" onSubmit={submit}>
+      <div className="flex flex-col gap-5">
         {isSignUp ? (
-          <div className="space-y-2">
-            <Label htmlFor="auth-name" className="font-ride-mono uppercase text-ride-ink-muted">
-              Name
-            </Label>
+          <AuthField label="Full name" htmlFor="auth-name">
             <Input
               id="auth-name"
               name="name"
               type="text"
               autoComplete="name"
+              placeholder="Alex Morgan"
               className={fieldClassName}
               required
               autoFocus
             />
-          </div>
+          </AuthField>
         ) : null}
 
-        <div className="space-y-2">
-          <Label htmlFor="auth-email" className="font-ride-mono uppercase text-ride-ink-muted">
-            Email
-          </Label>
+        <AuthField
+          label="Email"
+          htmlFor="auth-email"
+          description={isSignUp ? "Used only to secure and identify your account." : undefined}
+        >
           <Input
             id="auth-email"
             name="email"
             type="email"
             autoComplete="email"
             inputMode="email"
+            placeholder="rider@example.com"
             className={fieldClassName}
+            aria-invalid={error ? true : undefined}
             required
             autoFocus={!isSignUp}
           />
-        </div>
+        </AuthField>
 
-        <div className="space-y-2">
-          <Label htmlFor="auth-password" className="font-ride-mono uppercase text-ride-ink-muted">
-            Password
-          </Label>
+        <AuthField
+          label="Password"
+          htmlFor="auth-password"
+          description={isSignUp ? "Use at least 8 characters." : undefined}
+        >
           <Input
             id="auth-password"
             name="password"
@@ -193,18 +186,13 @@ function AuthForm({
             autoComplete={isSignUp ? "new-password" : "current-password"}
             minLength={8}
             className={fieldClassName}
+            aria-invalid={error ? true : undefined}
             required
           />
-        </div>
+        </AuthField>
 
         {isSignUp ? (
-          <div className="space-y-2">
-            <Label
-              htmlFor="auth-confirm-password"
-              className="font-ride-mono uppercase text-ride-ink-muted"
-            >
-              Confirm password
-            </Label>
+          <AuthField label="Confirm password" htmlFor="auth-confirm-password">
             <Input
               id="auth-confirm-password"
               name="confirmPassword"
@@ -212,53 +200,66 @@ function AuthForm({
               autoComplete="new-password"
               minLength={8}
               className={fieldClassName}
+              aria-invalid={error ? true : undefined}
               required
             />
-          </div>
+          </AuthField>
         ) : null}
+      </div>
 
-        <div className="min-h-6" aria-live="polite">
-          {error ? (
-            <p className="font-ride-mono text-xs leading-5 text-ride-danger" role="alert">
-              {error}
-            </p>
-          ) : null}
-        </div>
-
-        <Button
-          type="submit"
-          className="h-11 w-full border border-ride-amber bg-ride-amber px-4 font-ride text-xs font-bold uppercase text-[#15120a] hover:bg-ride-amber-bright"
-          disabled={isSubmitting}
+      {error ? (
+        <p
+          className="border-l-2 border-ride-danger pl-3 font-ride-mono text-xs leading-5 text-ride-danger"
+          role="alert"
+          aria-live="polite"
         >
-          {isSubmitting ? <LoaderCircleIcon className="animate-spin" /> : null}
-          {isSignUp ? "Create account" : "Sign in"}
-        </Button>
-      </form>
-    </div>
+          {error}
+        </p>
+      ) : null}
+
+      <Button
+        type="submit"
+        className="h-11 w-full border border-ride-amber bg-ride-amber px-4 font-ride text-xs font-bold uppercase text-[#15120a] hover:bg-ride-amber-bright"
+        disabled={isSubmitting}
+      >
+        {isSubmitting ? <LoaderCircleIcon className="animate-spin" /> : null}
+        {isSignUp ? "Create account" : "Sign in"}
+      </Button>
+
+      <p className="text-center text-sm text-ride-ink-muted">
+        {isSignUp ? "Already have an account?" : "New to Ride Lens?"}{" "}
+        <button
+          type="button"
+          className="font-semibold text-ride-ink underline decoration-ride-line underline-offset-4 transition-colors hover:text-ride-amber focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ride-amber"
+          onClick={() => changeMode(isSignUp ? "sign-in" : "sign-up")}
+        >
+          {isSignUp ? "Sign in" : "Create an account"}
+        </button>
+      </p>
+    </form>
   );
 }
 
-function AuthModeButton({
-  active,
-  icon,
+function AuthField({
   label,
-  onClick,
+  htmlFor,
+  description,
+  children,
 }: {
-  readonly active: boolean;
-  readonly icon: ReactNode;
   readonly label: string;
-  readonly onClick: () => void;
+  readonly htmlFor: string;
+  readonly description?: string | undefined;
+  readonly children: ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      role="tab"
-      aria-selected={active}
-      className="flex h-10 items-center justify-center gap-2 border-r border-ride-line px-2 font-ride text-[11px] font-bold uppercase text-ride-ink-muted transition-colors last:border-r-0 hover:text-ride-ink aria-selected:bg-ride-amber aria-selected:text-[#15120a] [&_svg]:size-3.5"
-      onClick={onClick}
-    >
-      {icon}
-      {label}
-    </button>
+    <div className="space-y-2">
+      <Label htmlFor={htmlFor} className="font-ride text-sm font-semibold text-ride-ink">
+        {label}
+      </Label>
+      {children}
+      {description ? (
+        <p className="font-ride-mono text-[11px] leading-4 text-ride-ink-dim">{description}</p>
+      ) : null}
+    </div>
   );
 }
