@@ -1,5 +1,6 @@
 import type { ActivityDetailResponse } from "@ride-lens/api";
 import { cn } from "@ride-lens/ui/lib/utils";
+import { useState } from "react";
 
 import {
   formatBpm,
@@ -16,6 +17,7 @@ import { useRideReplay } from "../map/replay/ride-replay";
 import { RouteMap } from "../map/route/route-map";
 import type { ActivityListItem, ActivitySegment } from "../types";
 import { MetricRow } from "./metric-row";
+import { HeartRateZoneDistribution } from "./heart-rate-zone-distribution";
 import { WeatherContext } from "./weather-context";
 
 export function RideDetail({
@@ -52,6 +54,10 @@ export function RideDetail({
 }) {
   const records = detail?.records ?? [];
   const replay = useRideReplay({ records });
+  const [selectedHeartRateZone, setSelectedHeartRateZone] = useState<1 | 2 | 3 | 4 | 5 | null>(
+    null,
+  );
+  const heartRateZoneAnalysis = detail?.heartRateZones ?? null;
 
   return (
     <div>
@@ -88,6 +94,14 @@ export function RideDetail({
         </div>
       </section>
 
+      {heartRateZoneAnalysis ? (
+        <HeartRateZoneDistribution
+          analysis={heartRateZoneAnalysis}
+          selectedZone={selectedHeartRateZone}
+          onSelectZone={setSelectedHeartRateZone}
+        />
+      ) : null}
+
       <WeatherContext weather={detail?.weather ?? null} />
 
       <div className="mt-3.5 grid grid-cols-[1.4fr_0.6fr] gap-0 border border-ride-line bg-ride-abyss max-[900px]:grid-cols-1">
@@ -96,6 +110,8 @@ export function RideDetail({
           loading={loading}
           segments={segments}
           replay={replay}
+          heartRateZoneProfile={heartRateZoneAnalysis?.profile ?? null}
+          selectedHeartRateZone={selectedHeartRateZone}
           creatingSegment={creatingSegment}
           segmentError={segmentError}
           onCreateSegment={onCreateSegment}
@@ -163,6 +179,8 @@ export function RideDetail({
                   }
                 : undefined
             }
+            heartRateZoneProfile={heartRateZoneAnalysis?.profile ?? undefined}
+            selectedHeartRateZone={selectedHeartRateZone}
           />
         </div>
       </div>

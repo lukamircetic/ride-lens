@@ -130,6 +130,31 @@ export const activity_laps = sqliteTable(
   ],
 );
 
+export const heart_rate_zone_profiles = sqliteTable(
+  "heart_rate_zone_profiles",
+  {
+    id: text().primaryKey(),
+    owner_user_id: text().notNull(),
+    sport: text({ enum: ["cycling"] })
+      .notNull()
+      .default("cycling"),
+    method: text({ enum: ["percentMax", "heartRateReserve", "custom"] }).notNull(),
+    maximum_heart_rate_bpm: integer(),
+    maximum_heart_rate_source: text({ enum: ["entered", "ageEstimate"] }),
+    resting_heart_rate_bpm: integer(),
+    zone_1_lower_bpm: integer().notNull(),
+    zone_2_lower_bpm: integer().notNull(),
+    zone_3_lower_bpm: integer().notNull(),
+    zone_4_lower_bpm: integer().notNull(),
+    zone_5_lower_bpm: integer().notNull(),
+    time_created: integer().notNull(),
+    time_updated: integer().notNull(),
+  },
+  (table) => [
+    uniqueIndex("heart_rate_zone_profiles_owner_sport_idx").on(table.owner_user_id, table.sport),
+  ],
+);
+
 export const weather_observations = sqliteTable(
   "weather_observations",
   {
@@ -362,3 +387,4 @@ export type SegmentRow = typeof segments.$inferSelect;
 export type SegmentEffortRow = typeof segment_efforts.$inferSelect;
 export type WeatherObservationRow = typeof weather_observations.$inferSelect;
 export type ActivityWeatherSummaryRow = typeof activity_weather_summaries.$inferSelect;
+export type HeartRateZoneProfileRow = typeof heart_rate_zone_profiles.$inferSelect;

@@ -16,6 +16,7 @@
     "@garmin/fitsdk": "^21.208.0",
     "@ride-lens/api": "workspace:*",
     "@ride-lens/db": "workspace:*",
+    "@ride-lens/heart-rate-zones": "workspace:*",
     "better-auth": "^1.6.23",
     "drizzle-orm": "^0.45.2",
     "effect": "catalog:"

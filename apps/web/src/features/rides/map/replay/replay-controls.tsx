@@ -8,9 +8,16 @@ import { REPLAY_SPEED_MULTIPLIERS, type RideReplayController } from "./replay-ty
 export function ReplayMapControls({
   replay,
   hidden,
+  heartRateZone,
 }: {
   readonly replay: RideReplayController;
   readonly hidden: boolean;
+  readonly heartRateZone: {
+    readonly number: 1 | 2 | 3 | 4 | 5 | null;
+    readonly name: string;
+    readonly color: string;
+    readonly heartRateBpm: number;
+  } | null;
 }) {
   if (!replay.hasReplay || hidden) return null;
 
@@ -60,6 +67,21 @@ export function ReplayMapControls({
                 {formatDuration(replay.elapsedSeconds)} / {formatDuration(replay.durationSeconds)}
               </span>
             </div>
+            {heartRateZone ? (
+              <div className="mt-1 flex items-center gap-1.5 font-ride-mono text-[9px] text-ride-ink-muted">
+                <span
+                  className="size-2"
+                  style={{ backgroundColor: heartRateZone.color }}
+                  aria-hidden="true"
+                />
+                <span>
+                  {Math.round(heartRateZone.heartRateBpm)} bpm ·{" "}
+                  {heartRateZone.number === null
+                    ? heartRateZone.name
+                    : `Z${heartRateZone.number} ${heartRateZone.name}`}
+                </span>
+              </div>
+            ) : null}
             <input
               className="mt-1 block w-full accent-ride-amber"
               type="range"

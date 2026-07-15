@@ -6,6 +6,7 @@ import { HttpRouter } from "effect/unstable/http";
 import { HttpApiBuilder, HttpApiError, HttpApiScalar } from "effect/unstable/httpapi";
 import { Activities } from "./activities";
 import { AuthMiddlewareLayer, AuthRoutes, makeAuthServiceLayer, type AuthConfig } from "./auth";
+import { HeartRateZones } from "./heart-rate-zones";
 import { Segments } from "./segments";
 import type { WeatherConfig } from "./weather";
 
@@ -141,9 +142,59 @@ export const SegmentHandlers = HttpApiBuilder.group(RideLensApi, "segments", (ha
     ),
 );
 
+export const HeartRateZoneHandlers = HttpApiBuilder.group(
+  RideLensApi,
+  "heartRateZones",
+  (handlers) =>
+    handlers
+      .handle("getProfile", () =>
+        Effect.gen(function* () {
+          const currentUser = yield* CurrentUser;
+          const heartRateZones = yield* HeartRateZones;
+          return yield* heartRateZones.getProfile(currentUser.id);
+        }).pipe(
+          Effect.catchTag("HeartRateZoneQueryError", () =>
+            Effect.fail(new HttpApiError.InternalServerError({})),
+          ),
+        ),
+      )
+      .handle("saveProfile", ({ payload }) =>
+        Effect.gen(function* () {
+          const currentUser = yield* CurrentUser;
+          const heartRateZones = yield* HeartRateZones;
+          return yield* heartRateZones.saveProfile(currentUser.id, payload);
+        }).pipe(
+          Effect.catchTags({
+            HeartRateZoneValidationError: () => Effect.fail(new HttpApiError.BadRequest({})),
+            HeartRateZoneQueryError: () => Effect.fail(new HttpApiError.InternalServerError({})),
+          }),
+        ),
+      )
+      .handle("getSeason", ({ params }) =>
+        Effect.gen(function* () {
+          const currentUser = yield* CurrentUser;
+          const heartRateZones = yield* HeartRateZones;
+          return yield* heartRateZones.getSeason(currentUser.id, params.year);
+        }).pipe(
+          Effect.catchTags({
+            HeartRateZoneValidationError: () => Effect.fail(new HttpApiError.BadRequest({})),
+            HeartRateZoneQueryError: () => Effect.fail(new HttpApiError.InternalServerError({})),
+          }),
+        ),
+      ),
+);
+
 export const ApiLive = HttpApiBuilder.layer(RideLensApi, {
   openapiPath: "/openapi.json",
-}).pipe(Layer.provide([SystemHandlers, ActivityImportHandlers, ActivityHandlers, SegmentHandlers]));
+}).pipe(
+  Layer.provide([
+    SystemHandlers,
+    ActivityImportHandlers,
+    ActivityHandlers,
+    SegmentHandlers,
+    HeartRateZoneHandlers,
+  ]),
+);
 
 export const DocsLive = HttpApiScalar.layer(RideLensApi, {
   path: "/docs",
@@ -166,14 +217,17 @@ export const makeAppLive = (config?: AppConfig) =>
       AuthRoutes,
     ).pipe(
       HttpRouter.provideRequest(
-        Layer.mergeAll(Activities.makeLayer(config?.weather), Segments.layer, AuthServiceLive).pipe(
-          Layer.provide(DatabaseLive),
-        ),
+        Layer.mergeAll(
+          Activities.makeLayer(config?.weather),
+          Segments.layer,
+          HeartRateZones.layer,
+          AuthServiceLive,
+        ).pipe(Layer.provide(DatabaseLive)),
       ),
       Layer.provide(
         HttpRouter.cors({
           allowedOrigins,
-          allowedMethods: ["GET", "HEAD", "POST", "PATCH", "DELETE", "OPTIONS"],
+          allowedMethods: ["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
           allowedHeaders: ["Content-Type"],
           credentials: true,
           maxAge: 600,

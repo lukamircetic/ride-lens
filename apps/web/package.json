@@ -14,6 +14,7 @@
     "@hookform/resolvers": "^5.4.0",
     "@ride-lens/api": "workspace:*",
     "@ride-lens/env": "workspace:*",
+    "@ride-lens/heart-rate-zones": "workspace:*",
     "@ride-lens/ui": "workspace:*",
     "@tailwindcss/vite": "^4.3.2",
     "@tanstack/react-router": "^1.170.17",

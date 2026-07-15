@@ -11,7 +11,14 @@ import {
   formatElevation,
   formatSpeed,
 } from "../../formatters";
-import type { ActivityRecord, ActivitySegment, ActivityRoutePoint, RouteMetric } from "../../types";
+import type {
+  ActivityRecord,
+  ActivitySegment,
+  ActivityRoutePoint,
+  HeartRateZoneProfile,
+  RouteMetric,
+} from "../../types";
+import { heartRateZoneColor, heartRateZoneNumber } from "../../heart-rate-zones";
 import { MapEmptyState } from "../components/map-empty-state";
 import { MapLegend } from "../components/map-legend";
 import { MapMetricButton } from "../components/map-metric-button";
@@ -32,6 +39,8 @@ export function RouteMap({
   loading,
   segments,
   replay,
+  heartRateZoneProfile,
+  selectedHeartRateZone,
   creatingSegment,
   segmentError,
   onCreateSegment,
@@ -41,6 +50,8 @@ export function RouteMap({
   readonly loading: boolean;
   readonly segments: ReadonlyArray<ActivitySegment>;
   readonly replay: RideReplay;
+  readonly heartRateZoneProfile: HeartRateZoneProfile | null;
+  readonly selectedHeartRateZone: 1 | 2 | 3 | 4 | 5 | null;
   readonly creatingSegment: boolean;
   readonly segmentError: string | null;
   readonly onCreateSegment: (payload: {
@@ -64,7 +75,9 @@ export function RouteMap({
   const routeStateRef = useRef<{
     points: ReturnType<typeof recordsToRoutePoints>;
     metric: RouteMetric;
-  }>({ points: [], metric: "speed" });
+    heartRateZoneProfile: HeartRateZoneProfile | null;
+    selectedHeartRateZone: 1 | 2 | 3 | 4 | 5 | null;
+  }>({ points: [], metric: "speed", heartRateZoneProfile: null, selectedHeartRateZone: null });
   const [metric, setMetric] = useState<RouteMetric>("speed");
   const [segmentMode, setSegmentMode] = useState(false);
   const [editingSegmentId, setEditingSegmentId] = useState<string | null>(null);
@@ -90,7 +103,12 @@ export function RouteMap({
     [records, draftStartRecordIndex, draftEndRecordIndex],
   );
   const hasRoute = points.length >= 2;
-  useReplayMapEffects({ map: mapReady ? mapRef.current : null, replay });
+  const activeReplayHeartRateZone = replayHeartRateZone(replay, heartRateZoneProfile);
+  useReplayMapEffects({
+    map: mapReady ? mapRef.current : null,
+    replay,
+    accentColor: activeReplayHeartRateZone?.color,
+  });
   const canSaveDraft =
     draftName.trim().length > 0 &&
     draftStartRecordIndex !== null &&
@@ -98,14 +116,20 @@ export function RouteMap({
     draftStartRecordIndex !== draftEndRecordIndex;
 
   useEffect(() => {
-    routeStateRef.current = { points, metric };
-  }, [points, metric]);
+    routeStateRef.current = { points, metric, heartRateZoneProfile, selectedHeartRateZone };
+  }, [heartRateZoneProfile, metric, points, selectedHeartRateZone]);
 
   useEffect(() => {
     if (!availableMetrics[metric]) {
       setMetric(firstAvailableRouteMetric(availableMetrics));
     }
   }, [availableMetrics, metric]);
+
+  useEffect(() => {
+    if (selectedHeartRateZone !== null && availableMetrics.heartRate && metric !== "heartRate") {
+      setMetric("heartRate");
+    }
+  }, [availableMetrics.heartRate, metric, selectedHeartRateZone]);
 
   useEffect(() => {
     segmentOverlayStateRef.current = {
@@ -157,7 +181,13 @@ export function RouteMap({
       applyAppleDarkBasemapStyle(map);
       addSelectedRouteLayers(map);
       addSegmentOverlayLayers(map);
-      updateSelectedRouteData(map, current.points, current.metric);
+      updateSelectedRouteData(
+        map,
+        current.points,
+        current.metric,
+        current.heartRateZoneProfile,
+        current.selectedHeartRateZone,
+      );
       const segmentState = segmentOverlayStateRef.current;
       updateSegmentOverlayData(
         map,
@@ -182,8 +212,8 @@ export function RouteMap({
     const map = mapRef.current;
     if (!map || !loadedRef.current) return;
 
-    updateSelectedRouteData(map, points, metric);
-  }, [points, metric]);
+    updateSelectedRouteData(map, points, metric, heartRateZoneProfile, selectedHeartRateZone);
+  }, [heartRateZoneProfile, metric, points, selectedHeartRateZone]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -397,7 +427,13 @@ export function RouteMap({
             />
           </div>
           <div className="!absolute !inset-0" ref={containerRef} />
-          {replay.enabled && !segmentMode ? null : <MapLegend metric={metric} points={points} />}
+          {replay.enabled && !segmentMode ? null : (
+            <MapLegend
+              metric={metric}
+              points={points}
+              heartRateZoneProfile={heartRateZoneProfile}
+            />
+          )}
 
           {segmentMode ? (
             <div className="absolute right-3 bottom-3 z-[2] w-[min(360px,calc(100%-24px))] border border-ride-amber bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
@@ -512,7 +548,11 @@ export function RouteMap({
             </div>
           ) : null}
 
-          <ReplayMapControls replay={replay} hidden={segmentMode} />
+          <ReplayMapControls
+            replay={replay}
+            hidden={segmentMode}
+            heartRateZone={activeReplayHeartRateZone}
+          />
         </div>
       ) : (
         <MapEmptyState
@@ -633,6 +673,29 @@ function computeDraftSegmentStats(
         ? null
         : heartRates.reduce((sum, value) => sum + value, 0) / heartRates.length,
     elevationGainMeters: range.length > 1 ? elevationGainMeters : null,
+  };
+}
+
+function replayHeartRateZone(
+  replay: RideReplay,
+  profile: HeartRateZoneProfile | null,
+): {
+  readonly number: 1 | 2 | 3 | 4 | 5 | null;
+  readonly name: string;
+  readonly color: string;
+  readonly heartRateBpm: number;
+} | null {
+  if (!replay.enabled || profile === null || replay.frame.heartRateBpm === null) return null;
+  const number = heartRateZoneNumber(replay.frame.heartRateBpm, profile);
+  const zone =
+    number === null ? null : profile.zones.find((candidate) => candidate.number === number);
+  if (number !== null && !zone) return null;
+
+  return {
+    number,
+    name: zone?.name ?? "Below Z1",
+    color: heartRateZoneColor(number),
+    heartRateBpm: replay.frame.heartRateBpm,
   };
 }
 

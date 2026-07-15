@@ -179,6 +179,88 @@ export const ActivityWeatherSummary = Schema.Struct({
   computedAt: Schema.String,
 });
 
+export const HeartRateZone = Schema.Struct({
+  number: Schema.Union([
+    Schema.Literal(1),
+    Schema.Literal(2),
+    Schema.Literal(3),
+    Schema.Literal(4),
+    Schema.Literal(5),
+  ]),
+  name: Schema.String,
+  lowerBpm: Schema.Number,
+  upperBpm: Schema.NullOr(Schema.Number),
+});
+
+export const HeartRateZoneProfile = Schema.Struct({
+  id: Schema.String,
+  sport: Schema.Literal("cycling"),
+  method: Schema.Union([
+    Schema.Literal("percentMax"),
+    Schema.Literal("heartRateReserve"),
+    Schema.Literal("custom"),
+  ]),
+  maximumHeartRateBpm: Schema.NullOr(Schema.Number),
+  maximumHeartRateSource: Schema.NullOr(
+    Schema.Union([Schema.Literal("entered"), Schema.Literal("ageEstimate")]),
+  ),
+  restingHeartRateBpm: Schema.NullOr(Schema.Number),
+  customLowerBoundsBpm: Schema.NullOr(Schema.Array(Schema.Number)),
+  zones: Schema.Array(HeartRateZone),
+  updatedAt: Schema.String,
+});
+
+export const HeartRateZoneProfileResponse = Schema.Struct({
+  profile: Schema.NullOr(HeartRateZoneProfile),
+});
+
+export const SaveHeartRateZoneProfilePayload = Schema.Struct({
+  method: HeartRateZoneProfile.fields.method,
+  maximumHeartRateBpm: Schema.NullOr(Schema.Number),
+  maximumHeartRateSource: HeartRateZoneProfile.fields.maximumHeartRateSource,
+  restingHeartRateBpm: Schema.NullOr(Schema.Number),
+  customLowerBoundsBpm: Schema.NullOr(Schema.Array(Schema.Number)),
+});
+
+export const HeartRateZoneTime = Schema.Struct({
+  ...HeartRateZone.fields,
+  seconds: Schema.Number,
+  share: Schema.Number,
+});
+
+export const HeartRateZoneDistribution = Schema.Struct({
+  totalTimerSeconds: Schema.Number,
+  classifiedSeconds: Schema.Number,
+  unclassifiedSeconds: Schema.Number,
+  belowZoneSeconds: Schema.Number,
+  belowZoneShare: Schema.Number,
+  coverageRatio: Schema.Number,
+  zones: Schema.Array(HeartRateZoneTime),
+});
+
+export const HeartRateZoneAnalysis = Schema.Struct({
+  profile: HeartRateZoneProfile,
+  distribution: HeartRateZoneDistribution,
+});
+
+export const HeartRateZoneWeek = Schema.Struct({
+  weekStart: Schema.String,
+  zones: Schema.Array(
+    Schema.Struct({
+      number: HeartRateZone.fields.number,
+      seconds: Schema.Number,
+    }),
+  ),
+});
+
+export const HeartRateZoneSeasonResponse = Schema.Struct({
+  year: Schema.Number,
+  profile: Schema.NullOr(HeartRateZoneProfile),
+  rideCount: Schema.Number,
+  distribution: Schema.NullOr(HeartRateZoneDistribution),
+  weeks: Schema.Array(HeartRateZoneWeek),
+});
+
 export const SegmentStats = Schema.Struct({
   distanceMeters: Schema.NullOr(Schema.Number),
   elapsedSeconds: Schema.NullOr(Schema.Number),
@@ -283,6 +365,7 @@ export const ActivityDetailResponse = Schema.Struct({
   records: Schema.Array(ActivityRecord),
   laps: Schema.Array(ActivityLap),
   weather: Schema.NullOr(ActivityWeatherSummary),
+  heartRateZones: Schema.NullOr(HeartRateZoneAnalysis),
 });
 
 export type ActivityListResponse = Schema.Schema.Type<typeof ActivityListResponse>;
@@ -293,6 +376,14 @@ export type UpdateSegmentPayload = Schema.Schema.Type<typeof UpdateSegmentPayloa
 export type SegmentDetailResponse = Schema.Schema.Type<typeof SegmentDetailResponse>;
 export type SegmentListResponse = Schema.Schema.Type<typeof SegmentListResponse>;
 export type ActivitySegmentsResponse = Schema.Schema.Type<typeof ActivitySegmentsResponse>;
+export type HeartRateZoneProfile = Schema.Schema.Type<typeof HeartRateZoneProfile>;
+export type HeartRateZoneProfileResponse = Schema.Schema.Type<typeof HeartRateZoneProfileResponse>;
+export type SaveHeartRateZoneProfilePayload = Schema.Schema.Type<
+  typeof SaveHeartRateZoneProfilePayload
+>;
+export type HeartRateZoneAnalysis = Schema.Schema.Type<typeof HeartRateZoneAnalysis>;
+export type HeartRateZoneDistribution = Schema.Schema.Type<typeof HeartRateZoneDistribution>;
+export type HeartRateZoneSeasonResponse = Schema.Schema.Type<typeof HeartRateZoneSeasonResponse>;
 
 export const decodeFitImportResponse = Schema.decodeUnknownPromise(FitImportResponse);
 export const decodeActivityListResponse = Schema.decodeUnknownPromise(ActivityListResponse);
@@ -301,6 +392,12 @@ export const decodeActivityDetailResponse = Schema.decodeUnknownPromise(Activity
 export const decodeSegmentDetailResponse = Schema.decodeUnknownPromise(SegmentDetailResponse);
 export const decodeSegmentListResponse = Schema.decodeUnknownPromise(SegmentListResponse);
 export const decodeActivitySegmentsResponse = Schema.decodeUnknownPromise(ActivitySegmentsResponse);
+export const decodeHeartRateZoneProfileResponse = Schema.decodeUnknownPromise(
+  HeartRateZoneProfileResponse,
+);
+export const decodeHeartRateZoneSeasonResponse = Schema.decodeUnknownPromise(
+  HeartRateZoneSeasonResponse,
+);
 
 export const SystemApi = HttpApiGroup.make("system", { topLevel: true }).add(
   HttpApiEndpoint.get("health", "/health", {
@@ -381,11 +478,35 @@ export const SegmentsApi = HttpApiGroup.make("segments", { topLevel: true })
   )
   .middleware(AuthMiddleware);
 
+export const HeartRateZonesApi = HttpApiGroup.make("heartRateZones", { topLevel: true })
+  .add(
+    HttpApiEndpoint.get("getProfile", "/api/heart-rate-zones/profile", {
+      success: HeartRateZoneProfileResponse,
+      error: HttpApiError.InternalServerErrorNoContent,
+    }),
+  )
+  .add(
+    HttpApiEndpoint.put("saveProfile", "/api/heart-rate-zones/profile", {
+      payload: SaveHeartRateZoneProfilePayload,
+      success: HeartRateZoneProfileResponse,
+      error: [HttpApiError.BadRequestNoContent, HttpApiError.InternalServerErrorNoContent],
+    }),
+  )
+  .add(
+    HttpApiEndpoint.get("getSeason", "/api/heart-rate-zones/season/:year", {
+      params: { year: Schema.NumberFromString },
+      success: HeartRateZoneSeasonResponse,
+      error: [HttpApiError.BadRequestNoContent, HttpApiError.InternalServerErrorNoContent],
+    }),
+  )
+  .middleware(AuthMiddleware);
+
 export class RideLensApi extends HttpApi.make("ride-lens-api")
   .add(SystemApi)
   .add(ActivityImportsApi)
   .add(ActivitiesApi)
   .add(SegmentsApi)
+  .add(HeartRateZonesApi)
   .annotateMerge(
     OpenApi.annotations({
       title: "Ride Lens API",

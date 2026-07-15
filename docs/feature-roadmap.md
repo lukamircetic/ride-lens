@@ -18,12 +18,16 @@ Already implemented:
 - Weather ingestion, weather observation caching, and ride-level wind context summaries.
 - Manual segment schema, selected-ride map create/edit mode, segment stat computation, and same-direction effort matching.
 - Dedicated Segments tab for comparing saved efforts across rides.
+- Rider-owned five-zone heart-rate profiles using percent-of-maximum, heart-rate reserve, or custom BPM boundaries.
+- Reproducible per-ride time-in-zone analysis with sampling coverage, zone filtering across the route and profile chart, and live replay context.
+- Weekly season heart-rate distribution grouped into easy, tempo, and hard intensity bands.
 
 Current roadmap position:
 
 - The map foundation is in place.
 - Weather is usable earlier than originally planned, but should still be treated as ride-level context until segment-level matching exists.
 - Manual segment creation/editing and basic cross-ride effort comparison are in place; the next major product push should be richer segment inspection, charts, and weather context.
+- Heart-rate zones are calculated from raw FIT records at read time, so changing the rider profile immediately reclassifies existing rides without rewriting source data.
 - Strava/community segment import should be researched and isolated behind a provider boundary before any implementation. The local Ride Lens segment model should not depend on Strava data or Strava retention rights.
 
 ## Map Platform Decision

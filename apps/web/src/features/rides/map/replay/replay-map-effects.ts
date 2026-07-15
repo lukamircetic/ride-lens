@@ -7,9 +7,11 @@ import type { RideReplayController } from "./replay-types";
 export function useReplayMapEffects({
   map,
   replay,
+  accentColor,
 }: {
   readonly map: MapLibreMap | null;
   readonly replay: RideReplayController;
+  readonly accentColor?: string;
 }) {
   const lastCameraUpdateRef = useRef(0);
   const { cameraMode, enabled, frame } = replay;
@@ -22,8 +24,9 @@ export function useReplayMapEffects({
       map,
       enabled ? frame.trailCoordinates : [],
       enabled ? frame.coordinate : null,
+      accentColor,
     );
-  }, [enabled, frame.coordinate, frame.trailCoordinates, map]);
+  }, [accentColor, enabled, frame.coordinate, frame.trailCoordinates, map]);
 
   useEffect(() => {
     if (!enabled || !map || frame.coordinate === null) return;
