@@ -16,7 +16,7 @@ import type {
   SegmentDetailResponse,
   SegmentListResponse,
 } from "@ride-lens/api";
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -130,12 +130,17 @@ const makeRideFitFile = (
     readonly startTime?: Date;
     readonly latitudeOffset?: number;
     readonly longitudeOffset?: number;
+    readonly durationSeconds?: number;
+    readonly sport?: "cycling" | "running";
   } = {},
 ): Uint8Array => {
   const encoder = new Encoder();
   const startTime = options.startTime ?? new Date("2026-01-15T13:00:00.000Z");
   const latitudeOffset = options.latitudeOffset ?? 0;
   const longitudeOffset = options.longitudeOffset ?? 0;
+  const durationSeconds = options.durationSeconds ?? 3600;
+  const sport = options.sport ?? "cycling";
+  const elapsedSeconds = options.durationSeconds ?? 3900;
   const startPositionLat = degreesToSemicircles(43.6532 + latitudeOffset);
   const startPositionLong = degreesToSemicircles(-79.3832 + longitudeOffset);
   const endPositionLat = degreesToSemicircles(43.6629 + latitudeOffset);
@@ -151,7 +156,7 @@ const makeRideFitFile = (
 
   const sportMesg = {
     mesgNum: getMesgNum("SPORT"),
-    sport: "cycling",
+    sport,
     subSport: "road",
   } satisfies Encodable<SportMesg>;
 
@@ -173,7 +178,7 @@ const makeRideFitFile = (
 
   const secondRecordMesg = {
     mesgNum: getMesgNum("RECORD"),
-    timestamp: addSeconds(startTime, 60),
+    timestamp: addSeconds(startTime, options.durationSeconds ?? 60),
     positionLat: endPositionLat,
     positionLong: endPositionLong,
     distance: 420,
@@ -189,7 +194,7 @@ const makeRideFitFile = (
 
   const lapMesg = {
     mesgNum: getMesgNum("LAP"),
-    timestamp: addSeconds(startTime, 3900),
+    timestamp: addSeconds(startTime, elapsedSeconds),
     startTime,
     event: "lap",
     eventType: "stop",
@@ -197,8 +202,8 @@ const makeRideFitFile = (
     startPositionLong,
     endPositionLat,
     endPositionLong,
-    totalElapsedTime: 3900,
-    totalTimerTime: 3600,
+    totalElapsedTime: elapsedSeconds,
+    totalTimerTime: durationSeconds,
     totalDistance: 25000,
     enhancedAvgSpeed: 6.94,
     enhancedMaxSpeed: 12.3,
@@ -213,17 +218,17 @@ const makeRideFitFile = (
 
   const sessionMesg = {
     mesgNum: getMesgNum("SESSION"),
-    timestamp: addSeconds(startTime, 3600),
+    timestamp: addSeconds(startTime, durationSeconds),
     startTime,
     event: "session",
     eventType: "stop",
-    sport: "cycling",
+    sport,
     subSport: "road",
     startPositionLat,
     startPositionLong,
-    totalElapsedTime: 3900,
-    totalTimerTime: 3600,
-    totalMovingTime: 3540,
+    totalElapsedTime: elapsedSeconds,
+    totalTimerTime: durationSeconds,
+    totalMovingTime: options.durationSeconds ?? 3540,
     totalDistance: 25000,
     avgSpeed: 6.94,
     maxSpeed: 12.3,
@@ -254,6 +259,23 @@ describe("Ride Lens API", () => {
 
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ status: "ok" });
+  });
+
+  it("allows browser preflights for profile updates", async () => {
+    const response = await rawHandler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile", {
+        method: "OPTIONS",
+        headers: {
+          origin: "http://localhost:3010",
+          "access-control-request-method": "PUT",
+          "access-control-request-headers": "content-type",
+        },
+      }),
+    );
+
+    expect(response.status).toBe(204);
+    expect(response.headers.get("access-control-allow-origin")).toBe("http://localhost:3010");
+    expect(response.headers.get("access-control-allow-methods")).toContain("PUT");
   });
 
   it("serves the OpenAPI document", async () => {
@@ -287,6 +309,204 @@ describe("Ride Lens API", () => {
         name: "Primary Rider",
         email: "primary@ride-lens.test",
       },
+    });
+  });
+
+  it("lets an authenticated rider configure and read a heart-rate zone profile", async () => {
+    const saveResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          method: "percentMax",
+          maximumHeartRateBpm: 190,
+          maximumHeartRateSource: "entered",
+          restingHeartRateBpm: null,
+          customLowerBoundsBpm: null,
+        }),
+      }),
+    );
+
+    expect(saveResponse.status).toBe(200);
+    expect(await saveResponse.json()).toMatchObject({
+      profile: {
+        method: "percentMax",
+        maximumHeartRateBpm: 190,
+        maximumHeartRateSource: "entered",
+        zones: [
+          { number: 1, name: "Recovery", lowerBpm: 95, upperBpm: 114 },
+          { number: 2, name: "Endurance", lowerBpm: 114, upperBpm: 133 },
+          { number: 3, name: "Tempo", lowerBpm: 133, upperBpm: 152 },
+          { number: 4, name: "Threshold", lowerBpm: 152, upperBpm: 171 },
+          { number: 5, name: "Maximum", lowerBpm: 171, upperBpm: null },
+        ],
+      },
+    });
+
+    const getResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile"),
+    );
+    expect(getResponse.status).toBe(200);
+    expect(await getResponse.json()).toMatchObject({
+      profile: {
+        method: "percentMax",
+        maximumHeartRateBpm: 190,
+      },
+    });
+
+    const secondaryBeforeResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile", {
+        headers: { cookie: SECONDARY_COOKIE },
+      }),
+    );
+    expect(await secondaryBeforeResponse.json()).toEqual({ profile: null });
+
+    const invalidResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json", cookie: SECONDARY_COOKIE },
+        body: JSON.stringify({
+          method: "custom",
+          maximumHeartRateBpm: null,
+          maximumHeartRateSource: null,
+          restingHeartRateBpm: null,
+          customLowerBoundsBpm: [100, 120, 110, 160, 180],
+        }),
+      }),
+    );
+    expect(invalidResponse.status).toBe(400);
+
+    const secondarySaveResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json", cookie: SECONDARY_COOKIE },
+        body: JSON.stringify({
+          method: "custom",
+          maximumHeartRateBpm: null,
+          maximumHeartRateSource: null,
+          restingHeartRateBpm: null,
+          customLowerBoundsBpm: [90, 110, 130, 150, 170],
+        }),
+      }),
+    );
+    expect(secondarySaveResponse.status).toBe(200);
+    expect(await secondarySaveResponse.json()).toMatchObject({
+      profile: {
+        method: "custom",
+        customLowerBoundsBpm: [90, 110, 130, 150, 170],
+      },
+    });
+
+    const primaryAfterResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile"),
+    );
+    expect(await primaryAfterResponse.json()).toMatchObject({
+      profile: { method: "percentMax", maximumHeartRateBpm: 190 },
+    });
+  });
+
+  it("derives ride and weekly season time from the active heart-rate zone profile", async () => {
+    const saveResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/profile", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          method: "percentMax",
+          maximumHeartRateBpm: 190,
+          maximumHeartRateSource: "entered",
+          restingHeartRateBpm: null,
+          customLowerBoundsBpm: null,
+        }),
+      }),
+    );
+    expect(saveResponse.status).toBe(200);
+
+    const form = new FormData();
+    form.append(
+      "file",
+      new Blob([
+        makeRideFitFile({
+          startTime: new Date("2026-02-02T13:00:00.000Z"),
+          durationSeconds: 20,
+        }),
+      ]),
+      "zone-ride.fit",
+    );
+    const importResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        body: form,
+      }),
+    );
+    expect(importResponse.status).toBe(200);
+    const imported = (await importResponse.json()) as FitImportResponse;
+
+    const detailResponse = await handler(
+      new Request(`http://ride-lens.test/api/activities/${imported.importId}`),
+    );
+    expect(detailResponse.status).toBe(200);
+    expect(await detailResponse.json()).toMatchObject({
+      heartRateZones: {
+        profile: { maximumHeartRateBpm: 190 },
+        distribution: {
+          totalTimerSeconds: 20,
+          classifiedSeconds: 20,
+          coverageRatio: 1,
+          zones: [
+            { number: 1, seconds: 0 },
+            { number: 2, seconds: 0 },
+            { number: 3, seconds: 20, share: 1 },
+            { number: 4, seconds: 0 },
+            { number: 5, seconds: 0 },
+          ],
+        },
+      },
+    });
+
+    const runningForm = new FormData();
+    runningForm.append(
+      "file",
+      new Blob([
+        makeRideFitFile({
+          startTime: new Date("2026-02-03T13:00:00.000Z"),
+          durationSeconds: 20,
+          sport: "running",
+        }),
+      ]),
+      "running-with-heart-rate.fit",
+    );
+    const runningImportResponse = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        body: runningForm,
+      }),
+    );
+    expect(runningImportResponse.status).toBe(200);
+    const runningImport = (await runningImportResponse.json()) as FitImportResponse;
+    const runningDetailResponse = await handler(
+      new Request(`http://ride-lens.test/api/activities/${runningImport.importId}`),
+    );
+    expect(runningDetailResponse.status).toBe(200);
+    expect(await runningDetailResponse.json()).toMatchObject({ heartRateZones: null });
+
+    const seasonResponse = await handler(
+      new Request("http://ride-lens.test/api/heart-rate-zones/season/2026"),
+    );
+    expect(seasonResponse.status).toBe(200);
+    expect(await seasonResponse.json()).toMatchObject({
+      year: 2026,
+      rideCount: 1,
+      profile: { maximumHeartRateBpm: 190 },
+      distribution: {
+        classifiedSeconds: 20,
+        zones: expect.arrayContaining([expect.objectContaining({ number: 3, seconds: 20 })]),
+      },
+      weeks: expect.arrayContaining([
+        {
+          weekStart: "2026-02-02",
+          zones: expect.arrayContaining([expect.objectContaining({ number: 3, seconds: 20 })]),
+        },
+      ]),
     });
   });
 
@@ -326,6 +546,33 @@ describe("Ride Lens API", () => {
         hasGps: true,
       },
     });
+  });
+
+  it("imports the supplied sample with heart rate on every record", async () => {
+    const sampleFit = await readFile(
+      new URL("../../../sample/ride-0-2026-07-05-12-30-42.fit", import.meta.url),
+    );
+    const form = new FormData();
+    form.append("file", new Blob([new Uint8Array(sampleFit)]), "sample-heart-rate.fit");
+
+    const response = await handler(
+      new Request("http://ride-lens.test/api/activities/import", {
+        method: "POST",
+        body: form,
+      }),
+    );
+    expect(response.status).toBe(200);
+    const imported = (await response.json()) as FitImportResponse;
+    expect(imported.summary.recordCount).toBe(509);
+
+    const detailResponse = await handler(
+      new Request(`http://ride-lens.test/api/activities/${imported.importId}`),
+    );
+    expect(detailResponse.status).toBe(200);
+    const detail = (await detailResponse.json()) as ActivityDetailResponse;
+    expect(detail.records).toHaveLength(509);
+    expect(detail.records.filter(({ heartRateBpm }) => heartRateBpm !== null)).toHaveLength(509);
+    expect(detail.heartRateZones?.distribution.coverageRatio).toBe(1);
   });
 
   it("lists imported activities and serves activity detail", async () => {

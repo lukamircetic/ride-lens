@@ -4,11 +4,12 @@ export function buildProfilePath(
   _height: number,
   baseline: number,
   top: number,
+  domain?: { readonly min: number; readonly max: number },
 ): string | null {
   if (values.length < 2) return null;
 
-  const min = Math.min(...values);
-  const max = Math.max(...values);
+  const min = domain?.min ?? Math.min(...values);
+  const max = domain?.max ?? Math.max(...values);
   const range = Math.max(max - min, 0.00001);
   const span = baseline - top;
   const step = width / (values.length - 1);
@@ -28,8 +29,9 @@ export function buildProfileArea(
   height: number,
   baseline: number,
   top: number,
+  domain?: { readonly min: number; readonly max: number },
 ): string | null {
-  const line = buildProfilePath(values, width, height, baseline, top);
+  const line = buildProfilePath(values, width, height, baseline, top, domain);
 
   if (!line) return null;
 

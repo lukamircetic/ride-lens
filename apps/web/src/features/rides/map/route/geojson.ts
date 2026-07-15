@@ -1,10 +1,19 @@
 import { formatRideTitle } from "../../formatters";
-import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../../types";
+import type {
+  ActivityRoute,
+  ActivityRoutePoint,
+  ActivitySegment,
+  HeartRateZoneProfile,
+  RouteMetric,
+} from "../../types";
+import { DIMMED_ZONE_COLOR, heartRateZoneColor, heartRateZoneNumber } from "../../heart-rate-zones";
 import { getMetricColor, getMetricRange, getMetricValue } from "./metrics";
 
 export function routeSegmentsFeatureCollection(
   points: ReadonlyArray<ActivityRoutePoint>,
   metric: RouteMetric,
+  heartRateZoneProfile: HeartRateZoneProfile | null = null,
+  selectedHeartRateZone: 1 | 2 | 3 | 4 | 5 | null = null,
 ) {
   const range = getMetricRange(points, metric);
   const features = [];
@@ -15,10 +24,21 @@ export function routeSegmentsFeatureCollection(
     if (!previous || !current) continue;
 
     const value = getMetricValue(current, metric);
+    const zoneNumber =
+      metric === "heartRate"
+        ? heartRateZoneNumber(current.heartRateBpm, heartRateZoneProfile)
+        : null;
+    const useZoneColor = metric === "heartRate" && heartRateZoneProfile !== null;
+    const selectedMatch = selectedHeartRateZone === null || zoneNumber === selectedHeartRateZone;
     features.push({
       type: "Feature",
       properties: {
-        color: getMetricColor(value, range),
+        color: useZoneColor
+          ? selectedMatch
+            ? heartRateZoneColor(zoneNumber)
+            : DIMMED_ZONE_COLOR
+          : getMetricColor(value, range),
+        opacity: selectedHeartRateZone === null || selectedMatch ? 1 : 0.3,
       },
       geometry: {
         type: "LineString",

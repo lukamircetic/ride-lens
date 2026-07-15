@@ -7,7 +7,7 @@ V1 is intentionally local-first:
 - Upload one or more `.fit` files from the web app.
 - Parse rides with Garmin's FIT SDK.
 - Persist the original FIT file plus normalized ride summaries, records, and laps in SQLite.
-- View ride list, selected ride stats, route shape, speed/elevation/heart-rate profiles, yearly progress, and season highlights.
+- View ride list, selected ride stats, route shape, speed/elevation/heart-rate profiles, personal heart-rate zones, yearly progress, and season highlights.
 
 See [docs/feature-roadmap.md](docs/feature-roadmap.md) for the map, segment, replay, weather, and 3D terrain roadmap.
 See [docs/deployment.md](docs/deployment.md) for the Cloudflare Pages and Coolify production runbook.
@@ -61,7 +61,7 @@ Duplicate uploads are detected by SHA-256 hash and return the existing activity 
 - `pnpm dev:web`: start the web app
 - `pnpm dev:server`: start the Effect backend
 - `pnpm check`: run formatting, lint, build, and TypeScript checks
-- `pnpm test`: run server tests
+- `pnpm test`: run calculation-engine and server tests
 - `pnpm db:generate`: generate Drizzle migrations
 - `pnpm db:studio`: open Drizzle Studio
 
@@ -71,5 +71,8 @@ Duplicate uploads are detected by SHA-256 hash and return the existing activity 
 - `POST /api/activities/import`
 - `GET /api/activities`
 - `GET /api/activities/:id`
+- `GET /api/heart-rate-zones/profile`
+- `PUT /api/heart-rate-zones/profile`
+- `GET /api/heart-rate-zones/season/:year`
 - `GET /openapi.json`
 - `GET /docs`

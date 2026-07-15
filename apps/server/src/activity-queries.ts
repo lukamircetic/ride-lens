@@ -9,14 +9,18 @@ import {
   activity_records,
   activity_weather_summaries,
   fit_files,
+  heart_rate_zone_profiles,
   type ActivityWeatherSummaryRow,
   type ActivityRow,
   type FitFileRow,
+  type HeartRateZoneProfileRow,
   type RideLensDrizzleDatabase,
   type RideLensDatabaseService,
 } from "@ride-lens/db";
 import { and, asc, desc, eq, isNotNull } from "drizzle-orm";
 import { Data, Effect } from "effect";
+import { calculateHeartRateZoneDistribution } from "@ride-lens/heart-rate-zones";
+import { profileRowToResponse } from "./heart-rate-zones";
 import { activityWeatherSummaryRowToResponse } from "./weather";
 
 export class ActivityQueryError extends Data.TaggedError("ActivityQueryError")<{
@@ -97,6 +101,11 @@ export const getActivityDetail = (
       return yield* Effect.fail(new ActivityNotFoundError({ activityId }));
     }
 
+    const heartRateZoneProfile =
+      detail.activity.sport === "cycling" && detail.heartRateZoneProfile !== null
+        ? profileRowToResponse(detail.heartRateZoneProfile)
+        : null;
+
     return {
       activity: activityWithFileToListItem(detail),
       records: detail.records.map(activityRecordRowToResponse),
@@ -105,6 +114,20 @@ export const getActivityDetail = (
         detail.weatherSummary === null
           ? null
           : activityWeatherSummaryRowToResponse(detail.weatherSummary),
+      heartRateZones:
+        heartRateZoneProfile === null
+          ? null
+          : {
+              profile: heartRateZoneProfile,
+              distribution: calculateHeartRateZoneDistribution(
+                detail.records.map((record) => ({
+                  timestampMs: record.timestamp,
+                  heartRateBpm: record.heart_rate_bpm,
+                })),
+                heartRateZoneProfile.zones,
+                detail.activity.total_timer_seconds,
+              ),
+            },
     };
   });
 
@@ -128,6 +151,7 @@ const queryActivityDetail = async (
       readonly records: ReadonlyArray<ActivityRecordRow>;
       readonly laps: ReadonlyArray<ActivityLapRow>;
       readonly weatherSummary: ActivityWeatherSummaryRow | null;
+      readonly heartRateZoneProfile: HeartRateZoneProfileRow | null;
     })
   | null
 > => {
@@ -143,7 +167,7 @@ const queryActivityDetail = async (
     return null;
   }
 
-  const [records, laps, weatherSummaryRows] = await Promise.all([
+  const [records, laps, weatherSummaryRows, heartRateZoneProfileRows] = await Promise.all([
     db
       .select()
       .from(activity_records)
@@ -159,6 +183,16 @@ const queryActivityDetail = async (
       .from(activity_weather_summaries)
       .where(eq(activity_weather_summaries.activity_id, activityId))
       .limit(1),
+    db
+      .select()
+      .from(heart_rate_zone_profiles)
+      .where(
+        and(
+          eq(heart_rate_zone_profiles.owner_user_id, ownerUserId),
+          eq(heart_rate_zone_profiles.sport, "cycling"),
+        ),
+      )
+      .limit(1),
   ]);
 
   return {
@@ -166,6 +200,7 @@ const queryActivityDetail = async (
     records,
     laps,
     weatherSummary: weatherSummaryRows[0] ?? null,
+    heartRateZoneProfile: heartRateZoneProfileRows[0] ?? null,
   };
 };
 

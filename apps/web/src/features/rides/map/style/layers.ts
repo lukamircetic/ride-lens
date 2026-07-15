@@ -1,6 +1,12 @@
 import type { GeoJSONSource, Map as MapLibreMap } from "maplibre-gl";
 
-import type { ActivityRoute, ActivityRoutePoint, ActivitySegment, RouteMetric } from "../../types";
+import type {
+  ActivityRoute,
+  ActivityRoutePoint,
+  ActivitySegment,
+  HeartRateZoneProfile,
+  RouteMetric,
+} from "../../types";
 import {
   allRideRoutesFeatureCollection,
   draftSegmentFeatureCollection,
@@ -56,6 +62,7 @@ export function addSelectedRouteLayers(map: MapLibreMap) {
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
       "line-color": ["get", "color"],
+      "line-opacity": ["coalesce", ["get", "opacity"], 1],
       "line-width": 5.4,
     },
   } as MapLayerSpecification);
@@ -76,11 +83,13 @@ export function updateSelectedRouteData(
   map: MapLibreMap,
   points: ReadonlyArray<ActivityRoutePoint>,
   metric: RouteMetric,
+  heartRateZoneProfile: HeartRateZoneProfile | null = null,
+  selectedHeartRateZone: 1 | 2 | 3 | 4 | 5 | null = null,
 ) {
   setGeoJsonSourceData(
     map,
     "selected-route-segments",
-    routeSegmentsFeatureCollection(points, metric),
+    routeSegmentsFeatureCollection(points, metric, heartRateZoneProfile, selectedHeartRateZone),
   );
   setGeoJsonSourceData(map, "selected-route-points", routeEndpointsFeatureCollection(points));
 }
@@ -134,7 +143,7 @@ export function addSegmentOverlayLayers(map: MapLibreMap) {
     source: "draft-segment-range",
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
-      "line-color": "#f2efe6",
+      "line-color": ["coalesce", ["get", "color"], "#f2efe6"],
       "line-opacity": 0.96,
       "line-width": 7.5,
     },
@@ -181,7 +190,7 @@ export function addReplayLayers(map: MapLibreMap) {
     source: "ride-replay-trail",
     layout: { "line-cap": "round", "line-join": "round" },
     paint: {
-      "line-color": "#f2efe6",
+      "line-color": ["coalesce", ["get", "color"], "#f2efe6"],
       "line-opacity": 0.98,
       "line-width": 5.8,
     },
@@ -191,7 +200,7 @@ export function addReplayLayers(map: MapLibreMap) {
     type: "circle",
     source: "ride-replay-rider",
     paint: {
-      "circle-color": "#ffc72c",
+      "circle-color": ["coalesce", ["get", "color"], "#ffc72c"],
       "circle-opacity": 0.24,
       "circle-radius": 16,
       "circle-blur": 0.55,
@@ -202,7 +211,7 @@ export function addReplayLayers(map: MapLibreMap) {
     type: "circle",
     source: "ride-replay-rider",
     paint: {
-      "circle-color": "#ffc72c",
+      "circle-color": ["coalesce", ["get", "color"], "#ffc72c"],
       "circle-radius": 7,
       "circle-stroke-color": "#111820",
       "circle-stroke-width": 3,
@@ -214,9 +223,14 @@ export function updateReplayLayerData(
   map: MapLibreMap,
   coordinates: ReadonlyArray<readonly [number, number]>,
   currentCoordinate: readonly [number, number] | null,
+  color?: string,
 ) {
-  setGeoJsonSourceData(map, "ride-replay-trail", replayTrailFeatureCollection(coordinates));
-  setGeoJsonSourceData(map, "ride-replay-rider", replayRiderFeatureCollection(currentCoordinate));
+  setGeoJsonSourceData(map, "ride-replay-trail", replayTrailFeatureCollection(coordinates, color));
+  setGeoJsonSourceData(
+    map,
+    "ride-replay-rider",
+    replayRiderFeatureCollection(currentCoordinate, color),
+  );
 }
 
 export function updateSegmentOverlayData(
@@ -244,7 +258,10 @@ export function updateSegmentOverlayData(
   );
 }
 
-function replayTrailFeatureCollection(coordinates: ReadonlyArray<readonly [number, number]>) {
+function replayTrailFeatureCollection(
+  coordinates: ReadonlyArray<readonly [number, number]>,
+  color?: string,
+) {
   if (coordinates.length < 2) return emptyFeatureCollection();
 
   return {
@@ -252,7 +269,7 @@ function replayTrailFeatureCollection(coordinates: ReadonlyArray<readonly [numbe
     features: [
       {
         type: "Feature",
-        properties: {},
+        properties: { color: color ?? "#f2efe6" },
         geometry: {
           type: "LineString",
           coordinates,
@@ -262,7 +279,10 @@ function replayTrailFeatureCollection(coordinates: ReadonlyArray<readonly [numbe
   };
 }
 
-function replayRiderFeatureCollection(coordinate: readonly [number, number] | null) {
+function replayRiderFeatureCollection(
+  coordinate: readonly [number, number] | null,
+  color?: string,
+) {
   if (coordinate === null) return emptyFeatureCollection();
 
   return {
@@ -270,7 +290,7 @@ function replayRiderFeatureCollection(coordinate: readonly [number, number] | nu
     features: [
       {
         type: "Feature",
-        properties: {},
+        properties: { color: color ?? "#ffc72c" },
         geometry: { type: "Point", coordinates: coordinate },
       },
     ],
