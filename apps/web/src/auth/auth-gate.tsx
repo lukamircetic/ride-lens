@@ -166,7 +166,6 @@ function AuthForm({
             type="email"
             autoComplete="email"
             inputMode="email"
-            placeholder="rider@example.com"
             className={fieldClassName}
             aria-invalid={error ? true : undefined}
             required

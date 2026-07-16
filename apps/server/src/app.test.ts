@@ -312,6 +312,54 @@ describe("Ride Lens API", () => {
     });
   });
 
+  it("lets an authenticated rider update their profile details", async () => {
+    const profileCookie = await createTestSession({
+      name: "Profile Rider",
+      email: "profile@ride-lens.test",
+      password: "profile-test-password",
+    });
+
+    const nameResponse = await rawHandler(
+      new Request(`${AUTH_BASE_URL}/api/auth/update-user`, {
+        method: "POST",
+        headers: {
+          cookie: profileCookie,
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({ name: "Updated Rider" }),
+      }),
+    );
+    expect(nameResponse.status).toBe(200);
+
+    const emailResponse = await rawHandler(
+      new Request(`${AUTH_BASE_URL}/api/auth/change-email`, {
+        method: "POST",
+        headers: {
+          cookie: profileCookie,
+          "content-type": "application/json",
+          origin: AUTH_BASE_URL,
+        },
+        body: JSON.stringify({ newEmail: "updated-profile@ride-lens.test" }),
+      }),
+    );
+    expect(emailResponse.status).toBe(200);
+
+    const sessionResponse = await rawHandler(
+      new Request(`${AUTH_BASE_URL}/api/auth/get-session?disableCookieCache=true`, {
+        headers: { cookie: profileCookie },
+      }),
+    );
+
+    expect(sessionResponse.status).toBe(200);
+    expect(await sessionResponse.json()).toMatchObject({
+      user: {
+        name: "Updated Rider",
+        email: "updated-profile@ride-lens.test",
+      },
+    });
+  });
+
   it("lets an authenticated rider configure and read a heart-rate zone profile", async () => {
     const saveResponse = await handler(
       new Request("http://ride-lens.test/api/heart-rate-zones/profile", {

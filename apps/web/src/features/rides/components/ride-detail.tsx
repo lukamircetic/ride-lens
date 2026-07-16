@@ -94,95 +94,96 @@ export function RideDetail({
         </div>
       </section>
 
-      {heartRateZoneAnalysis ? (
-        <HeartRateZoneDistribution
-          analysis={heartRateZoneAnalysis}
-          selectedZone={selectedHeartRateZone}
-          onSelectZone={setSelectedHeartRateZone}
-        />
-      ) : null}
-
       <WeatherContext weather={detail?.weather ?? null} />
 
-      <div className="mt-3.5 grid grid-cols-[1.4fr_0.6fr] gap-0 border border-ride-line bg-ride-abyss max-[900px]:grid-cols-1">
-        <RouteMap
-          records={records}
-          loading={loading}
-          segments={segments}
-          replay={replay}
-          heartRateZoneProfile={heartRateZoneAnalysis?.profile ?? null}
-          selectedHeartRateZone={selectedHeartRateZone}
-          creatingSegment={creatingSegment}
-          segmentError={segmentError}
-          onCreateSegment={onCreateSegment}
-          onUpdateSegment={onUpdateSegment}
-        />
-        <div
-          className={cn(
-            "grid min-w-0 grid-rows-3 border-l border-ride-line bg-ride-abyss",
-            "max-[900px]:grid-rows-none max-[900px]:border-l-0 max-[900px]:border-t",
-          )}
-        >
-          <ProfilePanel
-            label="Speed"
+      <div className="mt-3.5 border border-ride-line bg-ride-abyss">
+        <div className="grid grid-cols-[1.4fr_0.6fr] gap-0 max-[900px]:grid-cols-1">
+          <RouteMap
             records={records}
-            getValue={(record) =>
-              record.speedMetersPerSecond === null ? null : record.speedMetersPerSecond * 3.6
-            }
-            format={(value) => `${value.toFixed(1)} km/h`}
-            fill="#ffc72c"
-            stroke="#ffd95f"
-            liveProfile={
-              replay.enabled && replay.hasReplay
-                ? {
-                    data: replay.speedChart.data,
-                    value: replay.speedChart.value,
-                    currentTimeSeconds: replay.elapsedSeconds,
-                    windowSeconds: replay.chartWindowSeconds,
-                  }
-                : undefined
-            }
-          />
-          <ProfilePanel
-            label="Elevation"
-            records={records}
-            getValue={(record) => record.altitudeMeters}
-            format={(value) => `${Math.round(value)} m`}
-            fill="#ffc72c"
-            stroke="#ffc72c"
-            area
-            liveProfile={
-              replay.enabled && replay.hasReplay
-                ? {
-                    data: replay.elevationChart.data,
-                    value: replay.elevationChart.value,
-                    currentTimeSeconds: replay.elapsedSeconds,
-                    windowSeconds: replay.chartWindowSeconds,
-                  }
-                : undefined
-            }
-          />
-          <ProfilePanel
-            label="Heart rate"
-            records={records}
-            getValue={(record) => record.heartRateBpm}
-            format={(value) => `${Math.round(value)} bpm`}
-            fill="#9c7a12"
-            stroke="#ff5a5f"
-            liveProfile={
-              replay.enabled && replay.hasReplay
-                ? {
-                    data: replay.heartRateChart.data,
-                    value: replay.heartRateChart.value,
-                    currentTimeSeconds: replay.elapsedSeconds,
-                    windowSeconds: replay.chartWindowSeconds,
-                  }
-                : undefined
-            }
-            heartRateZoneProfile={heartRateZoneAnalysis?.profile ?? undefined}
+            loading={loading}
+            segments={segments}
+            replay={replay}
+            heartRateZoneProfile={heartRateZoneAnalysis?.profile ?? null}
             selectedHeartRateZone={selectedHeartRateZone}
+            creatingSegment={creatingSegment}
+            segmentError={segmentError}
+            onCreateSegment={onCreateSegment}
+            onUpdateSegment={onUpdateSegment}
           />
+          <div
+            className={cn(
+              "grid min-w-0 grid-rows-3 border-l border-ride-line bg-ride-abyss",
+              "max-[900px]:grid-rows-none max-[900px]:border-l-0 max-[900px]:border-t",
+            )}
+          >
+            <ProfilePanel
+              label="Speed"
+              records={records}
+              getValue={(record) =>
+                record.speedMetersPerSecond === null ? null : record.speedMetersPerSecond * 3.6
+              }
+              format={(value) => `${value.toFixed(1)} km/h`}
+              fill="#ffc72c"
+              stroke="#ffd95f"
+              liveProfile={
+                replay.enabled && replay.hasReplay
+                  ? {
+                      data: replay.speedChart.data,
+                      value: replay.speedChart.value,
+                      currentTimeSeconds: replay.elapsedSeconds,
+                      windowSeconds: replay.chartWindowSeconds,
+                    }
+                  : undefined
+              }
+            />
+            <ProfilePanel
+              label="Elevation"
+              records={records}
+              getValue={(record) => record.altitudeMeters}
+              format={(value) => `${Math.round(value)} m`}
+              fill="#ffc72c"
+              stroke="#ffc72c"
+              area
+              liveProfile={
+                replay.enabled && replay.hasReplay
+                  ? {
+                      data: replay.elevationChart.data,
+                      value: replay.elevationChart.value,
+                      currentTimeSeconds: replay.elapsedSeconds,
+                      windowSeconds: replay.chartWindowSeconds,
+                    }
+                  : undefined
+              }
+            />
+            <ProfilePanel
+              label="Heart rate"
+              records={records}
+              getValue={(record) => record.heartRateBpm}
+              format={(value) => `${Math.round(value)} bpm`}
+              fill="#9c7a12"
+              stroke="#ff5a5f"
+              liveProfile={
+                replay.enabled && replay.hasReplay
+                  ? {
+                      data: replay.heartRateChart.data,
+                      value: replay.heartRateChart.value,
+                      currentTimeSeconds: replay.elapsedSeconds,
+                      windowSeconds: replay.chartWindowSeconds,
+                    }
+                  : undefined
+              }
+              heartRateZoneProfile={heartRateZoneAnalysis?.profile ?? undefined}
+              selectedHeartRateZone={selectedHeartRateZone}
+            />
+          </div>
         </div>
+        {heartRateZoneAnalysis ? (
+          <HeartRateZoneDistribution
+            analysis={heartRateZoneAnalysis}
+            selectedZone={selectedHeartRateZone}
+            onSelectZone={setSelectedHeartRateZone}
+          />
+        ) : null}
       </div>
     </div>
   );
