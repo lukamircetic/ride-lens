@@ -48,6 +48,12 @@ export const makeBetterAuth = (database: AuthDatabase, config: BetterAuthConfig 
       enabled: true,
       minPasswordLength: 8,
     },
+    user: {
+      changeEmail: {
+        enabled: true,
+        updateEmailWithoutVerification: true,
+      },
+    },
     session: {
       expiresIn: 60 * 60 * 24 * 30,
       updateAge: 60 * 60 * 24,

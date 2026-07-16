@@ -5,7 +5,6 @@ import type {
   ActivitySegmentsResponse,
   HeartRateZoneProfileResponse,
   HeartRateZoneSeasonResponse,
-  SaveHeartRateZoneProfilePayload,
 } from "@ride-lens/api";
 import { cn } from "@ride-lens/ui/lib/utils";
 import { useNavigate } from "@tanstack/react-router";
@@ -20,12 +19,10 @@ import {
   listActivities,
   listActivityRoutes,
   listActivitySegments,
-  saveHeartRateZoneProfile,
   updateSegment,
 } from "./api";
 import { AppHeader } from "./components/app-header";
 import { EmptyState } from "./components/empty-state";
-import { HeartRateZoneProfilePanel } from "./components/heart-rate-zone-profile";
 import { RideDetail } from "./components/ride-detail";
 import { RideLog } from "./components/ride-log";
 import { SeasonSnapshot } from "./components/season-snapshot";
@@ -102,9 +99,6 @@ export function RideDashboard({
   const [heartRateZoneSeasonState, setHeartRateZoneSeasonState] = useState<
     LoadState<HeartRateZoneSeasonResponse>
   >({ data: null, error: null, loading: true });
-  const [savingHeartRateZones, setSavingHeartRateZones] = useState(false);
-  const [heartRateZoneMutationError, setHeartRateZoneMutationError] = useState<string | null>(null);
-  const [heartRateZoneRevision, setHeartRateZoneRevision] = useState(0);
 
   const activities = activitiesState.data?.activities ?? [];
   const activityRoutes = activityRoutesState.data?.routes ?? [];
@@ -220,39 +214,7 @@ export function RideDashboard({
     return () => {
       cancelled = true;
     };
-  }, [heartRateZoneRevision, selectedActivityId]);
-
-  const handleSaveHeartRateZones = async (payload: SaveHeartRateZoneProfilePayload) => {
-    setSavingHeartRateZones(true);
-    setHeartRateZoneMutationError(null);
-
-    try {
-      let profile: HeartRateZoneProfileResponse;
-      try {
-        profile = await saveHeartRateZoneProfile(payload);
-      } catch (error) {
-        const message = errorToMessage(error, "Could not save heart-rate zones.");
-        setHeartRateZoneMutationError(message);
-        throw new Error(message);
-      }
-
-      setHeartRateZoneProfileState({ data: profile, error: null, loading: false });
-      setHeartRateZoneRevision((current) => current + 1);
-
-      try {
-        const season = await getHeartRateZoneSeason(new Date().getFullYear());
-        setHeartRateZoneSeasonState({ data: season, error: null, loading: false });
-      } catch (error) {
-        setHeartRateZoneSeasonState((current) => ({
-          ...current,
-          error: errorToMessage(error, "Zones saved, but season effort could not be refreshed."),
-          loading: false,
-        }));
-      }
-    } finally {
-      setSavingHeartRateZones(false);
-    }
-  };
+  }, [selectedActivityId]);
 
   useEffect(() => {
     if (selectedActivityId === null) {
@@ -468,26 +430,6 @@ export function RideDashboard({
             </div>
           </section>
         )}
-
-        <section className="mt-12">
-          <div className={sectionHeaderClassName}>
-            <div className={sectionTitleClassName}>Heart-rate profile</div>
-            <div className={sectionSubClassName}>
-              {heartRateZoneProfileState.loading ? "loading zones" : "cycling · five zones"}
-            </div>
-          </div>
-          {heartRateZoneProfileState.loading ? (
-            <div className="h-[116px] animate-pulse border border-ride-line bg-ride-abyss" />
-          ) : (
-            <HeartRateZoneProfilePanel
-              key={heartRateZoneProfileState.data?.profile?.id ?? "new-heart-rate-profile"}
-              profile={heartRateZoneProfileState.data?.profile ?? null}
-              saving={savingHeartRateZones}
-              error={heartRateZoneMutationError}
-              onSave={handleSaveHeartRateZones}
-            />
-          )}
-        </section>
 
         {selectedActivity ? (
           <section className="mt-12">

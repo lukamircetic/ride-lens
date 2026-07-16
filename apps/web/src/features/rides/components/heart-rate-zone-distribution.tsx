@@ -6,7 +6,6 @@ import { formatDuration, formatPercentShare } from "../formatters";
 import {
   BELOW_ZONE_COLOR,
   formatHeartRateZoneRange,
-  heartRateZoneMethodLabel,
   HEART_RATE_ZONE_COLORS,
 } from "../heart-rate-zones";
 
@@ -19,28 +18,16 @@ export function HeartRateZoneDistribution({
   readonly selectedZone: 1 | 2 | 3 | 4 | 5 | null;
   readonly onSelectZone: (zone: 1 | 2 | 3 | 4 | 5 | null) => void;
 }) {
-  const { distribution, profile } = analysis;
+  const { distribution } = analysis;
 
   return (
-    <section className="mt-3.5 border border-ride-line bg-ride-abyss">
-      <div className="flex flex-wrap items-start justify-between gap-3 border-b border-ride-line px-4 py-3">
-        <div>
-          <div className="font-ride text-[11px] font-bold uppercase text-ride-ink-muted">
-            Effort distribution
-          </div>
-          <div className="mt-1 font-ride text-[10px] text-ride-ink-dim">
-            Select a zone to trace that effort across the chart and road.
-          </div>
-        </div>
-        <div className="text-right font-ride-mono text-[10px] text-ride-ink-dim">
-          <div className="text-ride-ink-muted">
-            {formatDuration(distribution.classifiedSeconds)} classified ·{" "}
-            {formatPercentShare(distribution.coverageRatio)} coverage
-          </div>
-          <div className="mt-1">{heartRateZoneMethodLabel(profile)}</div>
-        </div>
+    <section className="border-t border-ride-line bg-ride-abyss">
+      <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1 px-3 py-2.5">
+        <h3 className="font-ride text-[10px] font-bold uppercase text-ride-ink-muted">Zones</h3>
+        <p className="font-ride text-[10px] text-ride-ink-dim">
+          Click the zone to toggle it on the map
+        </p>
       </div>
-
       <div className="flex h-3 bg-ride-night-2" role="img" aria-label="Heart-rate effort ribbon">
         {distribution.belowZoneSeconds > 0 ? (
           <span
@@ -78,8 +65,8 @@ export function HeartRateZoneDistribution({
               type="button"
               variant="unstyled"
               className={cn(
-                "min-h-[96px] bg-ride-night-2 p-3 text-left transition-[background-color,opacity] hover:bg-[#22272d] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ride-amber",
-                active && "bg-[#252b30]",
+                "min-h-[96px] bg-ride-abyss p-3 text-left transition-[background-color,opacity] hover:bg-ride-night-2 focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ride-amber",
+                active && "bg-ride-night-2 shadow-[inset_0_-2px_var(--amber)]",
                 subdued && "opacity-45",
               )}
               aria-pressed={active}
