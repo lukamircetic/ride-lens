@@ -1,69 +1,80 @@
 # Ride Lens
 
-Private cycling analytics dashboard for manually imported FIT activity files.
+Self-hosted cycling analytics for the ride files you already own.
 
-V1 is intentionally local-first:
+Ride Lens turns Garmin FIT activities into an interactive training history: route maps and
+replays, speed and elevation profiles, heart-rate zones, matched segments, weather context,
+season progress, and recent-ride comparisons. Activity data and original FIT files stay in
+your own deployment.
 
-- Upload one or more `.fit` files from the web app.
-- Parse rides with Garmin's FIT SDK.
-- Persist the original FIT file plus normalized ride summaries, records, and laps in SQLite.
-- View ride list, selected ride stats, route shape, speed/elevation/heart-rate profiles, personal heart-rate zones, yearly progress, and season highlights.
+## Highlights
 
-See [docs/feature-roadmap.md](docs/feature-roadmap.md) for the map, segment, replay, weather, and 3D terrain roadmap.
-See [docs/deployment.md](docs/deployment.md) for the Cloudflare Pages and Coolify production runbook.
+- Import one or many `.fit` files, with SHA-256 duplicate detection.
+- Explore route geometry, elevation, speed, heart rate, laps, and animated ride replays.
+- Define personal heart-rate zones and review time-in-zone by ride or season.
+- Create route segments and compare matched efforts across activities.
+- Add historical weather context when a weather provider is configured.
+- Keep every account's activities isolated behind session-based authentication.
 
 ## Stack
 
-- `apps/web`: React, TanStack Router, Tailwind CSS, Vite+
-- `apps/server`: Bun, Effect `HttpApi`, `@effect/platform-bun`
-- `packages/api`: shared Effect API contract and response schemas
-- `packages/db`: SQLite/libSQL, Drizzle schema and migrations
-- `packages/ui`: shared shadcn/ui primitives
+- **Web:** React, TanStack Router, Tailwind CSS, MapLibre GL, Vite+
+- **API:** Bun, Effect HTTP API, Better Auth
+- **Data:** SQLite/libSQL with Drizzle migrations
+- **Monorepo:** pnpm workspaces with shared API, UI, and calculation packages
+
+The production web app is served by Cloudflare Pages. The API and its persistent SQLite
+volume run on a Coolify-managed VPS.
 
 ## Development
 
-Install dependencies:
+### Prerequisites
+
+- Node.js 24
+- pnpm 10.26.1
+- Bun 1.3.5
+
+Install dependencies and create local environment files:
 
 ```bash
 pnpm install
+cp apps/server/.env.example apps/server/.env
+cp apps/web/.env.example apps/web/.env
 ```
 
-Run both apps:
+Generate a local auth secret and add it to `apps/server/.env`:
+
+```bash
+openssl rand -base64 32
+```
+
+Run the API and web app in separate terminals:
 
 ```bash
 pnpm dev:server
 pnpm dev:web
 ```
 
-Open the web app at [http://localhost:3010](http://localhost:3010). Authentication and API requests are sent directly to `http://localhost:3002` with credentialed CORS. The Vite proxy remains available for manual development requests.
+Open [http://localhost:3010](http://localhost:3010). The browser sends authenticated API
+requests to `http://localhost:3002`.
 
 Local app data is written to `.data/`:
 
 - `.data/ride-lens.sqlite`
 - `.data/uploads/fit/*.fit`
 
-`.data/` is gitignored.
-
-## Sample Ride
-
-A sample FIT file is available at:
-
-```bash
-sample/ride-0-2026-07-05-12-30-42.fit
-```
-
-Create an account in the web app, then upload the sample through the authenticated dashboard.
-
-Duplicate uploads are detected by SHA-256 hash and return the existing activity instead of inserting another copy.
+The directory is gitignored. After creating an account, use
+[`sample/ride-0-2026-07-05-12-30-42.fit`](sample/ride-0-2026-07-05-12-30-42.fit) to try an
+import.
 
 ## Scripts
 
-- `pnpm dev:web`: start the web app
-- `pnpm dev:server`: start the Effect backend
-- `pnpm check`: run formatting, lint, build, and TypeScript checks
-- `pnpm test`: run calculation-engine and server tests
-- `pnpm db:generate`: generate Drizzle migrations
-- `pnpm db:studio`: open Drizzle Studio
+- `pnpm dev:web` — start the web app
+- `pnpm dev:server` — start the API
+- `pnpm check` — check formatting, lint rules, builds, and TypeScript
+- `pnpm test` — run package and API tests
+- `pnpm db:generate` — generate Drizzle migrations
+- `pnpm db:studio` — open Drizzle Studio
 
 ## API
 
@@ -76,3 +87,11 @@ Duplicate uploads are detected by SHA-256 hash and return the existing activity 
 - `GET /api/heart-rate-zones/season/:year`
 - `GET /openapi.json`
 - `GET /docs`
+
+## Deployment
+
+The production runbook covers Cloudflare Pages, Coolify, DNS, environment variables,
+backups, and post-deploy verification:
+
+- [Deployment guide](docs/deployment.md)
+- [Feature roadmap](docs/feature-roadmap.md)
