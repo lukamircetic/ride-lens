@@ -14,11 +14,19 @@ export default defineConfig({
       typeCheck: false,
     },
     plugins: ["eslint", "import", "oxc", "typescript"],
-    jsPlugins: ["./scripts/oxlint-plugin-ride-lens.js"],
+    jsPlugins: [
+      "./scripts/oxlint-plugin-ride-lens.js",
+      {
+        name: "react-doctor",
+        specifier: "oxlint-plugin-react-doctor",
+      },
+    ],
     rules: {
       "import/no-duplicates": "warn",
       "import/no-empty-named-blocks": "warn",
       "import/no-self-import": "error",
+      "react-doctor/no-derived-state": "warn",
+      "react-doctor/no-fetch-in-effect": "warn",
       "require-yield": "off",
       "ride-lens/no-cross-package-relative-imports": "error",
       "ride-lens/no-inline-schema-compile": "error",
