@@ -31,7 +31,7 @@ export function ReplayMapControls({
         onClick={() => replay.setEnabled(true)}
       >
         <PlayIcon className="size-[15px] text-ride-amber" />
-        Replay
+        <span className="max-[720px]:sr-only">Replay</span>
       </Button>
     );
   }

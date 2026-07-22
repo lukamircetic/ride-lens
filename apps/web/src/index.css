@@ -39,6 +39,7 @@
   --cross: #a88fda;
   --danger: #c8362c;
   min-height: 100svh;
+  color-scheme: dark;
   background: var(--night);
   color: var(--ink);
   font-family: "Overpass", system-ui, sans-serif;

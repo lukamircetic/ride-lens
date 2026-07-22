@@ -71,7 +71,9 @@ export function AllRidesMap({
         current.selectedActivityId,
         current.hoveredActivityId,
       );
-      fitMapToRoutes(map, current.routesWithGps, { padding: 56 });
+      fitMapToRoutes(map, current.routesWithGps, {
+        padding: responsiveMapPadding(containerRef.current, 56, 28),
+      });
     });
     map.on("click", "all-ride-routes-hit", (event) => {
       const activityId = event.features?.[0]?.properties?.activityId;
@@ -102,7 +104,9 @@ export function AllRidesMap({
     const map = mapRef.current;
     if (!map || !loadedRef.current || routesWithGps.length === 0) return;
 
-    fitMapToRoutes(map, routesWithGps, { padding: 56 });
+    fitMapToRoutes(map, routesWithGps, {
+      padding: responsiveMapPadding(containerRef.current, 56, 28),
+    });
   }, [routesWithGps]);
 
   return (
@@ -129,4 +133,12 @@ export function AllRidesMap({
       )}
     </div>
   );
+}
+
+function responsiveMapPadding(
+  container: HTMLElement | null,
+  desktopPadding: number,
+  mobilePadding: number,
+): number {
+  return container !== null && container.clientWidth <= 480 ? mobilePadding : desktopPadding;
 }

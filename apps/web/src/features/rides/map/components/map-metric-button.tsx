@@ -22,7 +22,7 @@ export function MapMetricButton({
       type="button"
       variant="unstyled"
       className={cn(
-        "box-border inline-flex h-7 w-[116px] cursor-pointer items-center justify-center overflow-hidden whitespace-nowrap border border-ride-ink/25 bg-ride-abyss/85 px-[9px] py-0 font-ride text-[10px] leading-none font-bold uppercase text-ride-ink backdrop-blur-lg transition-colors hover:border-ride-amber-deep hover:bg-ride-amber/15 disabled:cursor-default disabled:border-ride-ink/15 disabled:text-ride-ink-dim disabled:opacity-[0.38] disabled:hover:border-ride-ink/15 disabled:hover:text-ride-ink-dim max-[900px]:px-2",
+        "box-border inline-flex h-7 w-[116px] cursor-pointer items-center justify-center overflow-hidden whitespace-nowrap border border-ride-ink/25 bg-ride-abyss/85 px-[9px] py-0 font-ride text-[10px] leading-none font-bold uppercase text-ride-ink backdrop-blur-lg transition-colors hover:border-ride-amber-deep hover:bg-ride-amber/15 disabled:cursor-default disabled:border-ride-ink/15 disabled:text-ride-ink-dim disabled:opacity-[0.38] disabled:hover:border-ride-ink/15 disabled:hover:text-ride-ink-dim max-[900px]:px-2 max-[720px]:w-full max-[720px]:px-1.5",
         active && "border-ride-amber bg-ride-abyss/85 text-ride-ink hover:border-ride-amber-bright",
       )}
       disabled={!available}

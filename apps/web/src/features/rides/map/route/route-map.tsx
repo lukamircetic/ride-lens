@@ -197,7 +197,9 @@ export function RouteMap({
         segmentState.segmentMode ? segmentState.draftStartRecordIndex : null,
         segmentState.segmentMode ? segmentState.draftEndRecordIndex : null,
       );
-      fitMapToPoints(map, current.points, { padding: 48 });
+      fitMapToPoints(map, current.points, {
+        padding: responsiveMapPadding(containerRef.current, 48, 28),
+      });
     });
 
     return () => {
@@ -219,7 +221,9 @@ export function RouteMap({
     const map = mapRef.current;
     if (!map || !loadedRef.current || points.length < 2) return;
 
-    fitMapToPoints(map, points, { padding: 48 });
+    fitMapToPoints(map, points, {
+      padding: responsiveMapPadding(containerRef.current, 48, 28),
+    });
   }, [points]);
 
   useEffect(() => {
@@ -304,7 +308,9 @@ export function RouteMap({
     if (!map || !loadedRef.current) return;
 
     if (nextActiveEffortId === null) {
-      fitMapToPoints(map, points, { padding: 48 });
+      fitMapToPoints(map, points, {
+        padding: responsiveMapPadding(containerRef.current, 48, 28),
+      });
       return;
     }
 
@@ -315,7 +321,7 @@ export function RouteMap({
         segment.effort.startRecordIndex,
         segment.effort.endRecordIndex,
       ),
-      { padding: 96 },
+      { padding: responsiveMapPadding(containerRef.current, 96, 48) },
     );
   };
 
@@ -356,7 +362,7 @@ export function RouteMap({
           className={[
             "relative aspect-[1.25] min-h-[420px] overflow-hidden border bg-[#20252c] transition-colors max-[900px]:aspect-[0.82] max-[900px]:h-auto max-[900px]:min-h-[360px]",
             segmentMode
-              ? "border-ride-amber shadow-[0_0_0_2px_rgba(255,199,44,0.22)]"
+              ? "border-ride-amber shadow-[0_0_0_2px_rgba(255,199,44,0.22)] max-[720px]:aspect-auto max-[720px]:min-h-[560px] max-[720px]:w-full"
               : "border-[#343a43]",
           ].join(" ")}
         >
@@ -406,34 +412,36 @@ export function RouteMap({
               ) : null}
             </div>
           </div>
-          <div className={routeMetricControlsClassName()} aria-label="Route metric">
-            <MapMetricButton
-              metric="speed"
-              activeMetric={metric}
-              available={availableMetrics.speed}
-              onSelect={setMetric}
-            />
-            <MapMetricButton
-              metric="heartRate"
-              activeMetric={metric}
-              available={availableMetrics.heartRate}
-              onSelect={setMetric}
-            />
-            <MapMetricButton
-              metric="elevation"
-              activeMetric={metric}
-              available={availableMetrics.elevation}
-              onSelect={setMetric}
-            />
-          </div>
+          {segmentMode ? null : (
+            <div className={routeMetricControlsClassName(replay.enabled)} aria-label="Route metric">
+              <MapMetricButton
+                metric="speed"
+                activeMetric={metric}
+                available={availableMetrics.speed}
+                onSelect={setMetric}
+              />
+              <MapMetricButton
+                metric="heartRate"
+                activeMetric={metric}
+                available={availableMetrics.heartRate}
+                onSelect={setMetric}
+              />
+              <MapMetricButton
+                metric="elevation"
+                activeMetric={metric}
+                available={availableMetrics.elevation}
+                onSelect={setMetric}
+              />
+            </div>
+          )}
           <div className="!absolute !inset-0" ref={containerRef} />
-          {replay.enabled && !segmentMode ? null : (
+          {!replay.enabled && !segmentMode ? (
             <MapLegend
               metric={metric}
               points={points}
               heartRateZoneProfile={heartRateZoneProfile}
             />
-          )}
+          ) : null}
 
           {segmentMode ? (
             <div className="absolute right-3 bottom-3 z-[2] w-[min(360px,calc(100%-24px))] border border-ride-amber bg-[#12171d]/95 p-3 shadow-[0_12px_28px_rgba(0,0,0,0.32)] backdrop-blur">
@@ -448,9 +456,11 @@ export function RouteMap({
               </label>
               <input
                 id="segment-name"
-                className="mb-2 w-full border border-ride-line bg-ride-night-2 px-2.5 py-2 font-ride text-xs text-ride-ink outline-none focus:border-ride-amber"
+                name="segmentName"
+                autoComplete="off"
+                className="mb-2 w-full border border-ride-line bg-ride-night-2 px-2.5 py-2 font-ride text-base text-ride-ink outline-none focus:border-ride-amber sm:text-xs"
                 value={draftName}
-                placeholder="Name this segment"
+                placeholder="Lakeshore sprint…"
                 onChange={(event) => setDraftName(event.currentTarget.value)}
               />
               <div className="grid grid-cols-3 gap-px border border-ride-line bg-ride-line-soft text-xs">
@@ -582,8 +592,11 @@ function SelectedSegmentCell({ label, value }: { readonly label: string; readonl
   );
 }
 
-function routeMetricControlsClassName(): string {
-  return "absolute bottom-[96px] left-3 z-[2] flex max-w-[calc(100%-24px)] flex-col items-start gap-1.5";
+function routeMetricControlsClassName(replayEnabled: boolean): string {
+  return [
+    "absolute bottom-[96px] left-3 z-[2] flex max-w-[calc(100%-24px)] flex-col items-start gap-1.5 max-[720px]:right-3 max-[720px]:grid max-[720px]:max-w-none max-[720px]:grid-cols-3 max-[720px]:items-stretch",
+    replayEnabled ? "max-[720px]:bottom-[176px]" : "",
+  ].join(" ");
 }
 
 function segmentButtonClassName(active: boolean): string {
@@ -751,4 +764,12 @@ function haversineMeters(
 
 function toRadians(degrees: number): number {
   return degrees * (Math.PI / 180);
+}
+
+function responsiveMapPadding(
+  container: HTMLElement | null,
+  desktopPadding: number,
+  mobilePadding: number,
+): number {
+  return container !== null && container.clientWidth <= 480 ? mobilePadding : desktopPadding;
 }
