@@ -67,7 +67,7 @@ export function SegmentDashboard() {
 
   return (
     <div data-app="ride-lens">
-      <div className="mx-auto max-w-[1240px] px-7 pb-[60px]">
+      <div className="mx-auto max-w-[1240px] px-5 pb-[60px] sm:px-7">
         <AppHeader />
 
         {segmentsState.error ? (

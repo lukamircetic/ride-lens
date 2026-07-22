@@ -16,7 +16,7 @@ import type { LoadState } from "../rides/types";
 const EMPTY_HEART_RATE_ZONE_PROFILE: HeartRateZoneProfileResponse = { profile: null };
 
 const fieldClassName =
-  "h-10 border-ride-line bg-ride-night-2 px-3 font-ride text-sm text-ride-ink placeholder:text-ride-ink-dim focus-visible:border-ride-amber focus-visible:ring-ride-amber/25";
+  "h-10 border-ride-line bg-ride-night-2 px-3 font-ride text-base text-ride-ink placeholder:text-ride-ink-dim focus-visible:border-ride-amber focus-visible:ring-ride-amber/25 sm:text-sm";
 
 const sectionTitleClassName = "font-ride text-[13px] font-bold uppercase text-ride-ink-muted";
 
@@ -94,7 +94,7 @@ export function ProfilePage() {
 
   return (
     <div data-app="ride-lens">
-      <div className="mx-auto max-w-[1240px] px-7 pb-[60px]">
+      <div className="mx-auto max-w-[1240px] px-5 pb-[60px] sm:px-7">
         <AppHeader />
 
         <main>

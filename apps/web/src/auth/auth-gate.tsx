@@ -10,7 +10,7 @@ import { authClient } from "./auth-client";
 type AuthMode = "sign-in" | "sign-up";
 
 const fieldClassName =
-  "h-11 border-ride-line bg-ride-night-2 px-3 font-ride text-sm text-ride-ink placeholder:text-ride-ink-dim focus-visible:border-ride-amber focus-visible:ring-ride-amber/25";
+  "h-11 border-ride-line bg-ride-night-2 px-3 font-ride text-base text-ride-ink placeholder:text-ride-ink-dim focus-visible:border-ride-amber focus-visible:ring-ride-amber/25 sm:text-sm";
 
 const readField = (form: FormData, name: string) => {
   const value = form.get(name);
@@ -150,7 +150,6 @@ function AuthForm({
               placeholder="Alex Morgan"
               className={fieldClassName}
               required
-              autoFocus
             />
           </AuthField>
         ) : null}
@@ -169,7 +168,6 @@ function AuthForm({
             className={fieldClassName}
             aria-invalid={error ? true : undefined}
             required
-            autoFocus={!isSignUp}
           />
         </AuthField>
 

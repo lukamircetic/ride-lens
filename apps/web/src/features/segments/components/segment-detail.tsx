@@ -75,9 +75,17 @@ export function SegmentDetail({ segment }: { readonly segment: SegmentWithEffort
       <div className="mt-3.5 border border-ride-line bg-ride-abyss">
         <div className="flex items-center justify-between border-b border-ride-line px-3.5 py-2.5">
           <div className={sectionTitleClassName}>Efforts</div>
-          <div className={sectionSubClassName}>ranked by elapsed time</div>
+          <div className={sectionSubClassName}>
+            <span className="max-[720px]:hidden">ranked by elapsed time</span>
+            <span className="hidden max-[720px]:inline">swipe for metrics →</span>
+          </div>
         </div>
-        <div className="overflow-x-auto">
+        <div
+          className="overflow-x-auto focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ride-amber"
+          role="region"
+          aria-label="Effort metrics"
+          tabIndex={0}
+        >
           <table className="w-full min-w-[780px] table-fixed border-collapse">
             <colgroup>
               <col className="w-[54px]" />

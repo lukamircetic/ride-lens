@@ -15,10 +15,39 @@ const pageButtonClassName =
   "grid size-7 cursor-pointer place-items-center border border-ride-line bg-ride-night-2 font-ride-mono text-[13px] text-ride-ink-muted hover:border-ride-amber hover:text-ride-amber disabled:cursor-default disabled:border-ride-line disabled:text-ride-ink-dim disabled:opacity-[0.38]";
 
 const headerCellClassName =
-  "h-9 border-b border-ride-line px-[9px] text-left font-ride text-[11px] font-semibold uppercase text-ride-ink-dim";
+  "h-9 border-b border-ride-line px-2 text-left font-ride text-[11px] font-semibold uppercase text-ride-ink-dim sm:px-[9px]";
 
 const dataCellClassName =
-  "h-[42px] whitespace-nowrap border-b border-ride-line-soft px-[9px] text-ride-ink-muted";
+  "h-[42px] whitespace-nowrap border-b border-ride-line-soft px-2 text-ride-ink-muted sm:px-[9px]";
+
+function formatMobileDistance(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  return (value / 1000).toFixed(value >= 10000 ? 1 : 2);
+}
+
+function formatMobileDuration(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  return String(Math.floor(Math.max(0, Math.round(value)) / 60));
+}
+
+function formatMobileSpeed(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return "n/a";
+  return (value * 3.6).toFixed(1);
+}
+
+function UnitHeader({ label, unit }: { readonly label: string; readonly unit: string }) {
+  return (
+    <>
+      <span className="hidden sm:inline">{label}</span>
+      <span className="inline-flex flex-col items-end leading-none sm:hidden">
+        <span>{label}</span>
+        <span className="mt-1 font-ride-mono text-[9px] font-normal normal-case text-ride-ink-muted">
+          {unit}
+        </span>
+      </span>
+    </>
+  );
+}
 
 export function RideLog({
   activities,
@@ -80,22 +109,21 @@ export function RideLog({
           </Button>
         </div>
       </div>
-      <div className="h-[456px]">
+      <div className="h-[456px] max-[900px]:h-auto">
         <table className="w-full table-fixed border-collapse font-ride-mono text-[13px]">
-          <colgroup>
-            <col className="w-[42px]" />
-            <col />
-            <col className="w-[94px]" />
-            <col className="w-[86px]" />
-            <col className="w-24" />
-          </colgroup>
           <thead>
             <tr>
-              <th className={headerCellClassName}>#</th>
-              <th className={headerCellClassName}>Date</th>
-              <th className={cn(headerCellClassName, "text-right")}>Dist</th>
-              <th className={cn(headerCellClassName, "text-right")}>Time</th>
-              <th className={cn(headerCellClassName, "text-right")}>Avg</th>
+              <th className={cn(headerCellClassName, "hidden w-[42px] sm:table-cell")}>#</th>
+              <th className={cn(headerCellClassName, "w-[28%] sm:w-auto")}>Date</th>
+              <th className={cn(headerCellClassName, "w-[24%] text-right sm:w-[94px]")}>
+                <UnitHeader label="Dist" unit="km" />
+              </th>
+              <th className={cn(headerCellClassName, "w-[22%] text-right sm:w-[86px]")}>
+                <UnitHeader label="Time" unit="min" />
+              </th>
+              <th className={cn(headerCellClassName, "w-[26%] text-right sm:w-24")}>
+                <UnitHeader label="Avg" unit="km/h" />
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -103,30 +131,51 @@ export function RideLog({
               <tr
                 key={activity.id}
                 className={cn(
-                  "cursor-pointer transition-colors hover:[&>td]:bg-[rgb(255_199_44_/_0.06)]",
+                  "cursor-pointer transition-colors hover:[&>td]:bg-[rgb(255_199_44_/_0.06)] focus-visible:outline-2 focus-visible:outline-offset-[-2px] focus-visible:outline-ride-amber",
                   selectedActivityId === activity.id &&
                     "[&>td]:border-b-transparent [&>td]:bg-[rgb(255_199_44_/_0.1)]",
                   hoveredActivityId === activity.id &&
                     "[&>td]:border-b-transparent [&>td]:bg-[rgb(120_183_200_/_0.08)]",
                 )}
                 onClick={() => onSelectActivity(activity.id)}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  onSelectActivity(activity.id);
+                }}
                 onMouseEnter={() => onHoverActivity(activity.id)}
                 onMouseLeave={() => onHoverActivity(null)}
+                tabIndex={0}
               >
-                <td className={dataCellClassName}>
+                <td className={cn(dataCellClassName, "hidden sm:table-cell")}>
                   {String(page * RIDE_LOG_PAGE_SIZE + index + 1).padStart(2, "0")}
                 </td>
                 <td className={cn(dataCellClassName, "leading-[1.35] text-ride-ink")}>
                   {formatShortDate(activity.summary.startTime)}
                 </td>
                 <td className={cn(dataCellClassName, "text-right text-ride-amber-bright")}>
-                  {formatDistance(activity.summary.totalDistanceMeters)}
+                  <span className="hidden sm:inline">
+                    {formatDistance(activity.summary.totalDistanceMeters)}
+                  </span>
+                  <span className="sm:hidden">
+                    {formatMobileDistance(activity.summary.totalDistanceMeters)}
+                  </span>
                 </td>
                 <td className={cn(dataCellClassName, "text-right")}>
-                  {formatDuration(activity.summary.totalMovingSeconds)}
+                  <span className="hidden sm:inline">
+                    {formatDuration(activity.summary.totalMovingSeconds)}
+                  </span>
+                  <span className="sm:hidden">
+                    {formatMobileDuration(activity.summary.totalMovingSeconds)}
+                  </span>
                 </td>
                 <td className={cn(dataCellClassName, "text-right")}>
-                  {formatSpeed(activity.summary.avgSpeedMetersPerSecond)}
+                  <span className="hidden sm:inline">
+                    {formatSpeed(activity.summary.avgSpeedMetersPerSecond)}
+                  </span>
+                  <span className="sm:hidden">
+                    {formatMobileSpeed(activity.summary.avgSpeedMetersPerSecond)}
+                  </span>
                 </td>
               </tr>
             ))}

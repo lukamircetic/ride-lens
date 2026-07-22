@@ -17,7 +17,7 @@ import {
 import type { HeartRateZoneProfile } from "../types";
 
 const inputClassName =
-  "h-9 w-full border border-ride-line bg-ride-night-2 px-2.5 font-ride-mono text-[13px] text-ride-ink outline-none transition-colors placeholder:text-ride-ink-dim focus:border-ride-amber focus:ring-1 focus:ring-ride-amber/25";
+  "h-9 w-full border border-ride-line bg-ride-night-2 px-2.5 font-ride-mono text-base text-ride-ink outline-none transition-colors placeholder:text-ride-ink-dim focus:border-ride-amber focus:ring-1 focus:ring-ride-amber/25 sm:text-[13px]";
 
 const methodOptions: ReadonlyArray<{
   readonly method: HeartRateZoneMethod;
