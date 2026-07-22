@@ -30,6 +30,7 @@
   "devDependencies": {
     "@ride-lens/config": "workspace:*",
     "@types/node": "catalog:",
+    "oxlint-plugin-react-doctor": "^0.8.3",
     "react-doctor": "^0.8.3",
     "rolldown": "1.1.4",
     "typescript": "catalog:",
