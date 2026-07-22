@@ -19,7 +19,8 @@
     "dev:web": "vp run --filter web dev",
     "dev:server": "vp run --filter server dev",
     "db:generate": "vp run --filter @ride-lens/db db:generate",
-    "db:studio": "vp run --filter @ride-lens/db db:studio"
+    "db:studio": "vp run --filter @ride-lens/db db:studio",
+    "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
     "@ride-lens/env": "workspace:*",
@@ -29,6 +30,7 @@
   "devDependencies": {
     "@ride-lens/config": "workspace:*",
     "@types/node": "catalog:",
+    "react-doctor": "^0.8.3",
     "rolldown": "1.1.4",
     "typescript": "catalog:",
     "vite-plus": "0.2.2"
