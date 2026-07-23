@@ -19,6 +19,7 @@
   --color-ride-tail: var(--tail);
   --color-ride-cross: var(--cross);
   --color-ride-danger: var(--danger);
+  --color-ride-danger-bright: var(--danger-bright);
 }
 
 [data-app="ride-lens"] {
@@ -38,6 +39,7 @@
   --tail: #78b7c8;
   --cross: #a88fda;
   --danger: #c8362c;
+  --danger-bright: #f06a5f;
   min-height: 100svh;
   color-scheme: dark;
   background: var(--night);
@@ -192,6 +194,32 @@
 
 [data-app="ride-lens"] .maplibregl-ctrl-attrib a:hover {
   color: var(--amber);
+}
+
+@keyframes ride-burden-gust-flow {
+  0% {
+    opacity: 0.28;
+    transform: translateX(-2px);
+  }
+
+  38% {
+    opacity: 1;
+  }
+
+  78% {
+    opacity: 0.68;
+    transform: translateX(2px);
+  }
+
+  100% {
+    opacity: 0;
+    transform: translateX(3px);
+  }
+}
+
+[data-app="ride-lens"] .ride-burden-gust {
+  animation: ride-burden-gust-flow 2.2s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+  will-change: transform, opacity;
 }
 
 @media (prefers-reduced-motion: reduce) {

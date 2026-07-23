@@ -1,6 +1,6 @@
 import type { ActivityDetailResponse } from "@ride-lens/api";
 import { cn } from "@ride-lens/ui/lib/utils";
-import { MoveUp } from "lucide-react";
+import { MoveUp, Wind } from "lucide-react";
 import type { ReactNode } from "react";
 
 import {
@@ -21,11 +21,11 @@ export function WeatherContext({ weather }: { readonly weather: WeatherSummary }
   const headwind = weather.averageHeadwindMetersPerSecond;
   const routeWindLabel = headwind === null || headwind >= 0 ? "Headwind" : "Tailwind";
   const routeWindValue = headwind === null ? null : Math.abs(headwind);
-  const windBearing = weather.dominantWindDirectionDegrees ?? 0;
+  const windFromDegrees = weather.dominantWindDirectionDegrees;
+  const windTowardDegrees = windFromDegrees === null ? null : (windFromDegrees + 180) % 360;
   const burdenTone = getBurdenTone(weather.windBurdenScore);
   const weatherContextClassName = cn(
     "mt-0 grid grid-cols-4 gap-px border border-ride-line bg-ride-line-soft max-[900px]:grid-cols-2",
-    burdenTone === "harder" && "border-ride-amber/35",
     burdenTone === "helped" && "border-ride-tail/35",
   );
 
@@ -36,16 +36,18 @@ export function WeatherContext({ weather }: { readonly weather: WeatherSummary }
       </div>
       <div className={weatherContextClassName}>
         <WeatherCell
-          label="Wind from"
+          label="Wind direction"
           value={
             <>
-              {formatWindDirection(weather.dominantWindDirectionDegrees)}
-              <MoveUp
-                className="size-[18px] shrink-0 text-ride-amber drop-shadow-[0_0_5px_rgb(255_199_44_/_0.34)]"
-                aria-hidden="true"
-                strokeWidth={2}
-                style={{ transform: `rotate(${windBearing}deg)` }}
-              />
+              {formatWindDirection(windTowardDegrees)}
+              {windTowardDegrees === null ? null : (
+                <MoveUp
+                  className="size-[18px] shrink-0 text-ride-amber drop-shadow-[0_0_5px_rgb(255_199_44_/_0.34)]"
+                  aria-hidden="true"
+                  strokeWidth={2}
+                  style={{ transform: `rotate(${windTowardDegrees}deg)` }}
+                />
+              )}
             </>
           }
         />
@@ -70,7 +72,27 @@ export function WeatherContext({ weather }: { readonly weather: WeatherSummary }
         <WeatherCell label="Gust" value={formatWindSpeed(weather.maxWindGustMetersPerSecond)} />
         <WeatherCell label="Max head" value={formatWindSpeed(weather.maxHeadwindMetersPerSecond)} />
         <WeatherCell label="Max tail" value={formatWindSpeed(weather.maxTailwindMetersPerSecond)} />
-        <WeatherCell label="Burden" value={formatWindBurden(weather.windBurdenScore)} />
+        <WeatherCell
+          label="Burden"
+          value={
+            <span
+              className={cn(
+                "inline-flex items-center gap-1.5",
+                burdenTone === "harder" && "font-bold text-ride-danger-bright",
+              )}
+            >
+              {formatWindBurden(weather.windBurdenScore)}
+              {burdenTone === "harder" ? (
+                <span
+                  className="ride-burden-gust inline-grid size-[18px] shrink-0 place-items-center"
+                  aria-hidden="true"
+                >
+                  <Wind className="size-[18px]" strokeWidth={1.8} />
+                </span>
+              ) : null}
+            </span>
+          }
+        />
         <WeatherCell label="Long head" value={formatDistance(weather.longestHeadwindMeters)} />
 
         <div className="col-span-full grid grid-cols-[auto_minmax(0,1fr)] items-baseline gap-x-[22px] gap-y-2 bg-ride-abyss px-3.5 pt-[9px] pb-2.5 max-[900px]:grid-cols-1">
