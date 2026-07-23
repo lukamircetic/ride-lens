@@ -16,7 +16,7 @@ import type {
   SegmentDetailResponse,
   SegmentListResponse,
 } from "@ride-lens/api";
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, describe, expect, it } from "vitest";
@@ -596,12 +596,13 @@ describe("Ride Lens API", () => {
     });
   });
 
-  it("imports the supplied sample with heart rate on every record", async () => {
-    const sampleFit = await readFile(
-      new URL("../../../sample/ride-0-2026-07-05-12-30-42.fit", import.meta.url),
-    );
+  it("imports a generated FIT with heart rate on every record", async () => {
     const form = new FormData();
-    form.append("file", new Blob([new Uint8Array(sampleFit)]), "sample-heart-rate.fit");
+    form.append(
+      "file",
+      new Blob([makeRideFitFile({ durationSeconds: 20 })]),
+      "generated-heart-rate.fit",
+    );
 
     const response = await handler(
       new Request("http://ride-lens.test/api/activities/import", {
@@ -611,15 +612,15 @@ describe("Ride Lens API", () => {
     );
     expect(response.status).toBe(200);
     const imported = (await response.json()) as FitImportResponse;
-    expect(imported.summary.recordCount).toBe(509);
+    expect(imported.summary.recordCount).toBe(2);
 
     const detailResponse = await handler(
       new Request(`http://ride-lens.test/api/activities/${imported.importId}`),
     );
     expect(detailResponse.status).toBe(200);
     const detail = (await detailResponse.json()) as ActivityDetailResponse;
-    expect(detail.records).toHaveLength(509);
-    expect(detail.records.filter(({ heartRateBpm }) => heartRateBpm !== null)).toHaveLength(509);
+    expect(detail.records).toHaveLength(2);
+    expect(detail.records.filter(({ heartRateBpm }) => heartRateBpm !== null)).toHaveLength(2);
     expect(detail.heartRateZones?.distribution.coverageRatio).toBe(1);
   });
 

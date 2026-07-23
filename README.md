@@ -63,9 +63,8 @@ Local app data is written to `.data/`:
 - `.data/ride-lens.sqlite`
 - `.data/uploads/fit/*.fit`
 
-The directory is gitignored. After creating an account, use
-[`sample/ride-0-2026-07-05-12-30-42.fit`](sample/ride-0-2026-07-05-12-30-42.fit) to try an
-import.
+The directory is gitignored. After creating an account, upload a FIT activity exported from your
+device to try an import.
 
 ## Scripts
 
